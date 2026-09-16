@@ -28,16 +28,33 @@ Marco de trabajo: adaptación de Scrum a micro-sprints (3 sprints × 5 días = 1
 Historias: HU-01, HU-02, HU-03
 
 Tareas técnicas:
-- [ ] Instalar y configurar PostgreSQL 18; crear `authdb` y `creditdb`.
-- [ ] Crear la solución .NET 10 y el proyecto `Auth.Api`.
-- [ ] Modelar la entidad `Usuario` y generar la migración inicial con EF Core.
-- [ ] Implementar hash de contraseñas con BCrypt.
-- [ ] Implementar `POST /api/auth/register` y `POST /api/auth/login` con emisión de JWT.
-- [ ] Configurar CORS para la SPA.
-- [ ] Crear el frontend con Vite + React + TypeScript + Tailwind.
-- [ ] Implementar la vista de Login y el almacenamiento del token.
+- [x] Configurar PostgreSQL y crear `authdb`.
+- [x] Crear la solución .NET 10 y el proyecto `Auth.Api`.
+- [x] Modelar la entidad `Usuario` y generar la migración inicial con EF Core.
+- [x] Implementar hash de contraseñas con BCrypt.
+- [x] Implementar `POST /api/auth/register` y `POST /api/auth/login` con emisión de JWT.
+- [x] Configurar CORS para la SPA.
+- [x] Crear el frontend con Vite + React + TypeScript + Tailwind.
+- [x] Implementar la vista de Login y el almacenamiento del token.
 
 **Incremento entregable:** un usuario puede registrarse, iniciar sesión y conservar su sesión.
+
+### Pruebas de aceptación ejecutadas al cierre
+
+| # | Caso | Resultado esperado | Obtenido |
+|---|---|---|---|
+| 1 | `GET /health` | Servicio activo | ✅ 200 |
+| 2 | Registro de usuario nuevo | 201 con JWT y perfil | ✅ token de 435 caracteres |
+| 3 | Registro con correo repetido | 409 y mensaje explicativo | ✅ 409 |
+| 4 | Login con contraseña incorrecta | 401 sin revelar qué dato falló | ✅ 401 |
+| 5 | Login correcto | 200 con JWT vigente | ✅ 200 |
+| 6 | `GET /api/auth/me` con token | Perfil del portador | ✅ 200 |
+| 7 | `GET /api/auth/me` sin token | 401 | ✅ 401 |
+| 8 | `GET /api/auth/me` con firma alterada | 401 | ✅ 401 |
+| 9 | Registro con datos inválidos | 400 con mensajes en español | ✅ 400 |
+| 10 | Preflight CORS desde `localhost:5173` | Origen permitido | ✅ cabeceras emitidas |
+| 11 | Preflight CORS desde origen ajeno | Sin cabeceras `Access-Control` | ✅ rechazado |
+| 12 | Contraseña almacenada en la base | Hash BCrypt, nunca texto plano | ✅ `$2a$11$…` |
 
 ---
 
@@ -85,6 +102,6 @@ Se completa al cierre de cada sprint.
 
 | Sprint | Fecha de cierre | Incremento demostrado | Adaptaciones realizadas |
 |---|---|---|---|
-| 1 | | | |
+| 1 | 16/09/2026 | Registro, login y sesión persistente con JWT verificado contra la base `authdb`. 12 pruebas de aceptación en verde. | Se conservó **PostgreSQL 17**, ya instalado en el equipo, en lugar de instalar la 18: dos servidores en el mismo puerto habrían costado tiempo de configuración sin aportar valor al producto. Ejemplo directo del principio *responder ante el cambio sobre seguir un plan*. |
 | 2 | | | |
 | 3 | | | |

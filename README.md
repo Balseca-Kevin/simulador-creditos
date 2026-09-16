@@ -73,4 +73,49 @@ evidencia de cada incremento está en [docs/SPRINTS.md](docs/SPRINTS.md).
 
 ## Puesta en marcha
 
-Pendiente de documentar al cierre del Sprint 1.
+### Requisitos
+
+- .NET SDK 10
+- Node.js 22 o superior
+- PostgreSQL 15 o superior, escuchando en `localhost:5432`
+
+### 1. Configurar las credenciales locales
+
+El archivo `backend/Auth.Api/appsettings.Development.json` está excluido del
+control de versiones porque contiene la contraseña de la base y la clave de firma
+de los tokens. Créalo a partir de esta plantilla:
+
+```jsonc
+{
+  "ConnectionStrings": {
+    "AuthDb": "Host=localhost;Port=5432;Database=authdb;Username=postgres;Password=TU_CONTRASEÑA"
+  },
+  "Jwt": {
+    "Issuer": "SimuladorCreditos.AuthApi",
+    "Audience": "SimuladorCreditos.Clientes",
+    "Key": "UNA_CLAVE_ALEATORIA_DE_AL_MENOS_32_CARACTERES",
+    "MinutosDeVigencia": 120
+  },
+  "Cors": { "OrigenesPermitidos": [ "http://localhost:5173" ] }
+}
+```
+
+No hace falta crear la base a mano: al arrancar en modo desarrollo, EF Core crea
+`authdb` y aplica las migraciones pendientes.
+
+### 2. Levantar la Auth API
+
+```bash
+cd backend/Auth.Api
+dotnet run --launch-profile http     # http://localhost:5080
+```
+
+### 3. Levantar el frontend
+
+```bash
+cd frontend
+npm install
+npm run dev                          # http://localhost:5173
+```
+
+Abre `http://localhost:5173`, regístrate y accede al simulador.
