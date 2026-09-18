@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="Auth.Api/Auth.Api.csproj" />
+  <Project Path="Credit.Api/Credit.Api.csproj" />
+  <Project Path="Credit.Tests/Credit.Tests.csproj" />
 </Solution>

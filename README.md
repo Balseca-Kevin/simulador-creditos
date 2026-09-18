@@ -100,17 +100,51 @@ de los tokens. Créalo a partir de esta plantilla:
 }
 ```
 
-No hace falta crear la base a mano: al arrancar en modo desarrollo, EF Core crea
-`authdb` y aplica las migraciones pendientes.
+Crea también `backend/Credit.Api/appsettings.Development.json`:
 
-### 2. Levantar la Auth API
+```jsonc
+{
+  "ConnectionStrings": {
+    "CreditDb": "Host=localhost;Port=5432;Database=creditdb;Username=postgres;Password=TU_CONTRASEÑA"
+  },
+  "Jwt": {
+    "Issuer": "SimuladorCreditos.AuthApi",
+    "Audience": "SimuladorCreditos.Clientes",
+    "Key": "LA_MISMA_CLAVE_QUE_EN_AUTH_API"
+  },
+  "Cors": { "OrigenesPermitidos": [ "http://localhost:5173" ] }
+}
+```
+
+> **Importante:** `Jwt.Key`, `Issuer` y `Audience` deben ser idénticos en ambos
+> servicios. La Credit API valida la firma de los tokens que emite la Auth API; si
+> las claves difieren, rechazará con 401 incluso a usuarios con sesión válida.
+
+No hace falta crear las bases a mano: al arrancar en modo desarrollo, EF Core crea
+`authdb` y `creditdb`, aplica las migraciones y siembra el catálogo de tasas.
+
+### 2. Levantar los microservicios
+
+En dos terminales:
 
 ```bash
 cd backend/Auth.Api
 dotnet run --launch-profile http     # http://localhost:5080
 ```
 
-### 3. Levantar el frontend
+```bash
+cd backend/Credit.Api
+dotnet run --launch-profile http     # http://localhost:5090
+```
+
+### 3. Ejecutar las pruebas
+
+```bash
+cd backend
+dotnet test SimuladorCreditos.slnx   # 42 pruebas del motor de amortización
+```
+
+### 4. Levantar el frontend
 
 ```bash
 cd frontend

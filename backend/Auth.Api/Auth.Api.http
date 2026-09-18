@@ -1,6 +1,31 @@
-@Auth.Api_HostAddress = http://localhost:5202
+# Peticiones de prueba de la Auth API.
+# Se ejecutan desde VS Code con la extensión "REST Client".
 
-GET {{Auth.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+@auth = http://localhost:5080
 
-###
+### Estado del servicio
+GET {{auth}}/health
+
+### Registrar una cuenta
+POST {{auth}}/api/auth/register
+Content-Type: application/json
+
+{
+  "nombreCompleto": "Usuario de Prueba",
+  "email": "prueba@uta.edu.ec",
+  "password": "Simulador2026"
+}
+
+### Iniciar sesión (guarda el token para la siguiente petición)
+# @name login
+POST {{auth}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "prueba@uta.edu.ec",
+  "password": "Simulador2026"
+}
+
+### Perfil del portador del token
+GET {{auth}}/api/auth/me
+Authorization: Bearer {{login.response.body.token}}
