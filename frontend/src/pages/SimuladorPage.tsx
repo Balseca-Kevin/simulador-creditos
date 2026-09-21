@@ -114,13 +114,7 @@ export function SimuladorPage() {
 
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
-          <nav aria-label="Ruta" className="text-sm text-slate-500">
-            <span>Créditos</span>
-            <span className="mx-2 text-slate-300">/</span>
-            <span className="font-medium text-marca-700">Simulador</span>
-          </nav>
-
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Simulador de crédito
           </h1>
           <p className="mt-2 max-w-2xl text-lg text-slate-600">
@@ -207,10 +201,9 @@ export function SimuladorPage() {
       </main>
 
       <footer className="mt-6 border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-6 text-sm text-slate-500 sm:flex-row sm:justify-between sm:px-6">
-          <p>Simulador de Créditos · Universidad Técnica de Ambato</p>
-          <p>Proyecto académico de Metodologías de Desarrollo de Software</p>
-        </div>
+        <p className="mx-auto max-w-7xl px-4 py-6 text-sm text-slate-500 sm:px-6">
+          Simulador de Créditos · Universidad Técnica de Ambato
+        </p>
       </footer>
     </div>
   )

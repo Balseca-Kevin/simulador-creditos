@@ -6,7 +6,7 @@ usuario autenticarse y generar tablas de amortización comparativas por los mét
 
 - **Desarrollador:** Kevin David Balseca Tumbaco
 - **Institución:** Universidad Técnica de Ambato — Ambato, Ecuador
-- **Asignatura:** Metodologías de Desarrollo de Software
+- **Asignatura:** Metodologías Ágiles
 - **Inicio:** 11 de septiembre de 2026 · **Duración:** 15 días (3 sprints de 5 días)
 
 ---
