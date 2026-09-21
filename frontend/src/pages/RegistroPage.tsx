@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { AlertaError } from '../components/AlertaError'
 import { CampoTexto } from '../components/CampoTexto'
 import { PanelMarca } from '../components/PanelMarca'
+import { Isotipo } from '../components/Isotipo'
 import { useAuth } from '../hooks/useAuth'
 
 interface ErroresCampo {
@@ -67,9 +68,14 @@ export function RegistroPage() {
     <div className="grid h-full lg:grid-cols-2">
       <PanelMarca />
 
-      <main className="flex items-center justify-center overflow-y-auto bg-slate-50 px-6 py-12">
+      <main className="flex items-center justify-center overflow-y-auto bg-white px-6 py-12">
         <div className="w-full max-w-md">
-          <h2 className="text-3xl font-bold text-slate-900">Crear cuenta</h2>
+          <div className="mb-10 flex items-center gap-3 lg:hidden">
+            <Isotipo />
+            <p className="font-bold text-slate-900">Simulador de Créditos</p>
+          </div>
+
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Crear cuenta</h2>
           <p className="mt-2 text-slate-600">
             Regístrate para guardar y comparar tus simulaciones.
           </p>
@@ -127,9 +133,7 @@ export function RegistroPage() {
             <button
               type="submit"
               disabled={enviando}
-              className="w-full rounded-lg bg-marca-600 px-4 py-2.5 font-semibold text-white shadow-sm transition
-                hover:bg-marca-700 focus:ring-2 focus:ring-marca-300 focus:outline-none
-                disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-xl bg-marca-600 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-marca-700 focus:ring-4 focus:ring-marca-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             >
               {enviando ? 'Creando cuenta…' : 'Registrarme'}
             </button>

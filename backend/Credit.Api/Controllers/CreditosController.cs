@@ -34,6 +34,7 @@ public class CreditosController(CreditDbContext contexto, IMotorAmortizacion mot
                 Codigo = t.Codigo,
                 Nombre = t.Nombre,
                 TasaAnual = t.TasaAnual,
+                TasaSeguroDesgravamenMensual = t.TasaSeguroDesgravamenMensual,
                 Descripcion = t.Descripcion
             })
             .ToListAsync();
@@ -62,11 +63,27 @@ public class CreditosController(CreditDbContext contexto, IMotorAmortizacion mot
             return BadRequest(new { mensaje = "El tipo de crédito seleccionado no existe o no está disponible." });
         }
 
-        // Regla de negocio central: la tasa proviene del tipo elegido, nunca del cliente.
-        var tasaAnual = tipo.TasaAnual;
+        var mesesPorPeriodo = solicitud.FrecuenciaPago.MesesPorPeriodo(solicitud.PlazoMeses);
 
-        var francesa = motor.CalcularFrances(solicitud.Monto, tasaAnual, solicitud.PlazoMeses);
-        var alemana = motor.CalcularAleman(solicitud.Monto, tasaAnual, solicitud.PlazoMeses);
+        if (solicitud.PlazoMeses % mesesPorPeriodo != 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = $"Con frecuencia {solicitud.FrecuenciaPago.Etiqueta().ToLowerInvariant()} " +
+                          $"el plazo debe ser múltiplo de {mesesPorPeriodo} meses."
+            });
+        }
+
+        // Regla de negocio central: las tasas provienen del tipo elegido, nunca del cliente.
+        var parametros = new ParametrosCredito(
+            Monto: solicitud.Monto,
+            TasaAnual: tipo.TasaAnual,
+            PlazoMeses: solicitud.PlazoMeses,
+            Frecuencia: solicitud.FrecuenciaPago,
+            TasaSeguroMensual: solicitud.IncluirSeguroDesgravamen ? tipo.TasaSeguroDesgravamenMensual : 0m);
+
+        var francesa = motor.CalcularFrances(parametros);
+        var alemana = motor.CalcularAleman(parametros);
 
         var simulacion = new Simulacion
         {
@@ -74,10 +91,13 @@ public class CreditosController(CreditDbContext contexto, IMotorAmortizacion mot
             TipoCreditoId = tipo.Id,
             Monto = solicitud.Monto,
             PlazoMeses = solicitud.PlazoMeses,
-            TasaAnualAplicada = tasaAnual,
+            FrecuenciaPago = solicitud.FrecuenciaPago,
+            IncluyeSeguroDesgravamen = solicitud.IncluirSeguroDesgravamen,
+            TasaAnualAplicada = tipo.TasaAnual,
             CuotaFija = francesa.PrimeraCuota,
             TotalInteresFrances = francesa.TotalInteres,
-            TotalInteresAleman = alemana.TotalInteres
+            TotalInteresAleman = alemana.TotalInteres,
+            IngresoMinimoRequerido = francesa.IngresoMinimoRequerido
         };
 
         contexto.Simulaciones.Add(simulacion);
@@ -93,12 +113,18 @@ public class CreditosController(CreditDbContext contexto, IMotorAmortizacion mot
                 Codigo = tipo.Codigo,
                 Nombre = tipo.Nombre,
                 TasaAnual = tipo.TasaAnual,
+                TasaSeguroDesgravamenMensual = tipo.TasaSeguroDesgravamenMensual,
                 Descripcion = tipo.Descripcion
             },
             Monto = solicitud.Monto,
             PlazoMeses = solicitud.PlazoMeses,
-            TasaAnualAplicada = tasaAnual,
-            TasaMensualAplicada = Math.Round(MotorAmortizacion.TasaMensual(tasaAnual), 8),
+            FrecuenciaPago = solicitud.FrecuenciaPago,
+            NumeroCuotas = francesa.Cuotas.Count,
+            MesesPorPeriodo = mesesPorPeriodo,
+            IncluyeSeguroDesgravamen = solicitud.IncluirSeguroDesgravamen,
+            TasaAnualAplicada = tipo.TasaAnual,
+            TasaPeriodicaAplicada = Math.Round(MotorAmortizacion.TasaPeriodica(tipo.TasaAnual, mesesPorPeriodo), 8),
+            RelacionCuotaIngreso = MotorAmortizacion.RelacionCuotaIngreso,
             Francesa = francesa,
             Alemana = alemana,
             Comparativo = new ComparativoMetodos
@@ -129,10 +155,13 @@ public class CreditosController(CreditDbContext contexto, IMotorAmortizacion mot
                 TipoCredito = s.TipoCredito!.Nombre,
                 Monto = s.Monto,
                 PlazoMeses = s.PlazoMeses,
+                FrecuenciaPago = s.FrecuenciaPago,
+                IncluyeSeguroDesgravamen = s.IncluyeSeguroDesgravamen,
                 TasaAnualAplicada = s.TasaAnualAplicada,
                 CuotaFija = s.CuotaFija,
                 TotalInteresFrances = s.TotalInteresFrances,
-                TotalInteresAleman = s.TotalInteresAleman
+                TotalInteresAleman = s.TotalInteresAleman,
+                IngresoMinimoRequerido = s.IngresoMinimoRequerido
             })
             .ToListAsync();
 

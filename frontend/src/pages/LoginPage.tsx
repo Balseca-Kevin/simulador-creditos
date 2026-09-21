@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AlertaError } from '../components/AlertaError'
 import { CampoTexto } from '../components/CampoTexto'
 import { PanelMarca } from '../components/PanelMarca'
+import { Isotipo } from '../components/Isotipo'
 import { useAuth } from '../hooks/useAuth'
 
 interface ErroresCampo {
@@ -57,9 +58,14 @@ export function LoginPage() {
     <div className="grid h-full lg:grid-cols-2">
       <PanelMarca />
 
-      <main className="flex items-center justify-center bg-slate-50 px-6 py-12">
+      <main className="flex items-center justify-center bg-white px-6 py-12">
         <div className="w-full max-w-md">
-          <h2 className="text-3xl font-bold text-slate-900">Iniciar sesión</h2>
+          <div className="mb-10 flex items-center gap-3 lg:hidden">
+            <Isotipo />
+            <p className="font-bold text-slate-900">Simulador de Créditos</p>
+          </div>
+
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Iniciar sesión</h2>
           <p className="mt-2 text-slate-600">
             Accede para simular tus créditos y comparar tablas de amortización.
           </p>
@@ -94,9 +100,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={enviando}
-              className="w-full rounded-lg bg-marca-600 px-4 py-2.5 font-semibold text-white shadow-sm transition
-                hover:bg-marca-700 focus:ring-2 focus:ring-marca-300 focus:outline-none
-                disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-xl bg-marca-600 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-marca-700 focus:ring-4 focus:ring-marca-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             >
               {enviando ? 'Verificando…' : 'Entrar'}
             </button>

@@ -18,7 +18,7 @@ usuario autenticarse y generar tablas de amortización comparativas por los mét
 | Frontend | React 19 + Vite + TypeScript + Tailwind CSS v4 | SPA: login, formulario de simulación y render de tablas |
 | Auth API | .NET 10 (ASP.NET Core) | Registro, login y emisión de tokens JWT |
 | Credit API | .NET 10 (ASP.NET Core) | Motor de cálculo y reglas de amortización (protegido por JWT) |
-| Persistencia | PostgreSQL 18 | `authdb` (identidades) y `creditdb` (tasas e historial) |
+| Persistencia | PostgreSQL 17 | `authdb` (identidades) y `creditdb` (tasas e historial) |
 
 Se aplica el patrón **Database per Service**: cada microservicio es dueño exclusivo de
 su base de datos y ningún servicio consulta las tablas del otro.
@@ -34,26 +34,45 @@ su base de datos y ningún servicio consulta las tablas del otro.
      └──────┬───────┘ └──────┬───────┘
             ▼                ▼
         [ authdb ]      [ creditdb ]
-             PostgreSQL 18
+             PostgreSQL 17
 ```
 
 ## Reglas de negocio
 
-El tipo de crédito determina la tasa de interés anual aplicada:
+El tipo de crédito determina la tasa de interés anual y la prima del seguro de
+desgravamen aplicadas:
 
-| Tipo de crédito | Tasa referencial anual | Descripción |
-|---|---|---|
-| Crédito de Consumo | 15.50 % | Adquisición de bienes de consumo o pago de servicios |
-| Crédito Inmobiliario | 8.50 % | Compra, construcción o remodelación de vivienda |
-| Microcrédito | 22.00 % | Financiamiento para actividades productivas a pequeña escala |
+| Tipo de crédito | Tasa anual | Desgravamen mensual | Descripción |
+|---|---|---|---|
+| Crédito de Consumo | 15.50 % | 0.05 % del saldo | Adquisición de bienes de consumo o pago de servicios |
+| Crédito Inmobiliario | 8.50 % | 0.04 % del saldo | Compra, construcción o remodelación de vivienda |
+| Microcrédito | 22.00 % | 0.07 % del saldo | Financiamiento para actividades productivas a pequeña escala |
 
 Las tasas se almacenan en `creditdb`, no están fijadas en el código: la regla es
-dinámica y puede actualizarse sin recompilar los servicios.
+dinámica y puede actualizarse sin recompilar los servicios. Las primas de
+desgravamen son valores referenciales del mercado ecuatoriano.
 
 ### Métodos de amortización
 
-- **Francés:** cuota mensual fija; el interés decrece y el capital crece con el tiempo.
-- **Alemán:** amortización de capital fija; la cuota total decrece mes a mes.
+- **Francés:** cuota fija; el interés decrece y el capital crece con el tiempo.
+- **Alemán:** amortización de capital fija; la cuota total decrece período a período.
+
+### Frecuencia de pago
+
+Mensual, bimensual, trimestral, semestral o al vencimiento (un único pago). La
+tasa del período es la anual repartida según los meses que cubre cada cuota
+(12 % anual = 3 % trimestral), y el plazo debe ser múltiplo de esa frecuencia.
+
+### Seguro de desgravamen
+
+Opcional. Se cobra en cada cuota sobre el saldo adeudado al inicio del período,
+por lo que disminuye a medida que se amortiza el crédito.
+
+### Ingreso mínimo requerido
+
+La cuota más alta de la tabla, llevada a su equivalente mensual, dividida para
+0.40: la cuota no debe superar el **40 % del ingreso**. Se redondea hacia arriba
+al centavo para no quedar nunca por debajo del umbral.
 
 ## Estructura del repositorio
 
@@ -141,7 +160,7 @@ dotnet run --launch-profile http     # http://localhost:5090
 
 ```bash
 cd backend
-dotnet test SimuladorCreditos.slnx   # 42 pruebas del motor de amortización
+dotnet test SimuladorCreditos.slnx   # 66 pruebas del motor de amortización
 ```
 
 ### 4. Levantar el frontend

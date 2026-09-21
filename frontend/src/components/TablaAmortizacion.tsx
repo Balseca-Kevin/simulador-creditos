@@ -3,113 +3,91 @@ import { moneda } from '../utils/formato'
 
 interface Props {
   tabla: Tabla
-  titulo: string
-  descripcion: string
-  destacada?: boolean
+  conSeguro: boolean
 }
 
+const celda = 'px-4 py-2.5 text-right tabular-nums whitespace-nowrap'
+const encabezado = 'px-4 py-3 text-right font-semibold whitespace-nowrap'
+
 /**
- * Tabla de amortización con encabezado fijo y desplazamiento propio:
- * un crédito a 480 meses son 480 filas, y sin esto la página se vuelve inmanejable.
+ * Tabla de amortización con encabezado y totales fijos y desplazamiento propio:
+ * un crédito a 480 meses son 480 filas, y sin esto se pierde de vista qué
+ * significa cada columna. Las columnas de seguro solo aparecen si se contrató.
  */
-export function TablaAmortizacion({ tabla, titulo, descripcion, destacada = false }: Props) {
+export function TablaAmortizacion({ tabla, conSeguro }: Props) {
   return (
-    <section
-      className={`flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm ${
-        destacada ? 'border-marca-300 ring-1 ring-marca-300' : 'border-slate-200'
-      }`}
-    >
-      <header className="border-b border-slate-100 px-5 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="font-semibold text-slate-900">{titulo}</h3>
-            <p className="mt-0.5 text-xs leading-snug text-slate-500">{descripcion}</p>
-          </div>
+    <div className="max-h-[32rem] overflow-auto">
+      <table className="w-full border-collapse text-sm">
+        <caption className="sr-only">
+          Tabla de amortización por el método {tabla.metodo === 'Frances' ? 'francés' : 'alemán'}
+        </caption>
 
-          {destacada && (
-            <span className="shrink-0 rounded-full bg-marca-100 px-2.5 py-1 text-xs font-semibold text-marca-700">
-              Menos intereses
-            </span>
-          )}
-        </div>
+        <thead className="sticky top-0 z-10 bg-slate-100 text-xs tracking-wide text-slate-600 uppercase">
+          <tr>
+            <th scope="col" className="px-4 py-3 text-left font-semibold">
+              N.º
+            </th>
+            <th scope="col" className={encabezado}>
+              Capital
+            </th>
+            <th scope="col" className={encabezado}>
+              Interés
+            </th>
+            <th scope="col" className={encabezado}>
+              {conSeguro ? 'Cuota' : 'Cuota total'}
+            </th>
+            {conSeguro && (
+              <>
+                <th scope="col" className={encabezado}>
+                  Seguro
+                </th>
+                <th scope="col" className={encabezado}>
+                  Cuota total
+                </th>
+              </>
+            )}
+            <th scope="col" className={encabezado}>
+              Saldo
+            </th>
+          </tr>
+        </thead>
 
-        <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
-          <div>
-            <dt className="text-xs text-slate-500">Primera cuota</dt>
-            <dd className="font-semibold tabular-nums text-slate-900">
-              {moneda(tabla.primeraCuota)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-slate-500">Última cuota</dt>
-            <dd className="font-semibold tabular-nums text-slate-900">
-              {moneda(tabla.ultimaCuota)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-slate-500">Total intereses</dt>
-            <dd className="font-semibold tabular-nums text-slate-900">
-              {moneda(tabla.totalInteres)}
-            </dd>
-          </div>
-        </dl>
-      </header>
-
-      <div className="max-h-[28rem] overflow-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th scope="col" className="px-4 py-2.5 text-left font-medium">
-                N.º
-              </th>
-              <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                Cuota
-              </th>
-              <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                Interés
-              </th>
-              <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                Capital
-              </th>
-              <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                Saldo
-              </th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y divide-slate-100">
-            {tabla.cuotas.map((fila) => (
-              <tr key={fila.periodo} className="hover:bg-slate-50">
-                <td className="px-4 py-2 text-left tabular-nums text-slate-500">{fila.periodo}</td>
-                <td className="px-4 py-2 text-right font-medium tabular-nums text-slate-900">
-                  {moneda(fila.cuota)}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums text-amber-700">
-                  {moneda(fila.interes)}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums text-emerald-700">
-                  {moneda(fila.capital)}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                  {moneda(fila.saldoRestante)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-
-          <tfoot className="sticky bottom-0 bg-slate-50 font-semibold text-slate-900">
-            <tr>
-              <td className="px-4 py-2.5 text-left text-xs uppercase tracking-wide text-slate-500">
-                Totales
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {tabla.cuotas.map((fila) => (
+            <tr key={fila.periodo} className="transition-colors hover:bg-marca-50/60">
+              <td className="px-4 py-2.5 text-left tabular-nums text-slate-400">{fila.periodo}</td>
+              <td className={`${celda} text-slate-700`}>{moneda(fila.capital)}</td>
+              <td className={`${celda} text-slate-700`}>{moneda(fila.interes)}</td>
+              <td className={`${celda} ${conSeguro ? 'text-slate-700' : 'font-semibold text-slate-900'}`}>
+                {moneda(fila.cuota)}
               </td>
-              <td className="px-4 py-2.5 text-right tabular-nums">{moneda(tabla.totalPagado)}</td>
-              <td className="px-4 py-2.5 text-right tabular-nums">{moneda(tabla.totalInteres)}</td>
-              <td className="px-4 py-2.5 text-right tabular-nums">{moneda(tabla.totalCapital)}</td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">—</td>
+              {conSeguro && (
+                <>
+                  <td className={`${celda} text-slate-500`}>{moneda(fila.seguro)}</td>
+                  <td className={`${celda} font-semibold text-slate-900`}>{moneda(fila.cuotaTotal)}</td>
+                </>
+              )}
+              <td className={`${celda} text-slate-500`}>{moneda(fila.saldoRestante)}</td>
             </tr>
-          </tfoot>
-        </table>
-      </div>
-    </section>
+          ))}
+        </tbody>
+
+        <tfoot className="sticky bottom-0 bg-marca-50 font-bold text-marca-900">
+          <tr>
+            <td className="px-4 py-3 text-left text-xs tracking-wide uppercase">Total</td>
+            <td className={celda}>{moneda(tabla.totalCapital)}</td>
+            <td className={celda}>{moneda(tabla.totalInteres)}</td>
+            <td className={celda}>{moneda(tabla.totalCapital + tabla.totalInteres)}</td>
+            {conSeguro && (
+              <>
+                <td className={celda}>{moneda(tabla.totalSeguro)}</td>
+                <td className={celda}>{moneda(tabla.totalPagado)}</td>
+              </>
+            )}
+            <td className={`${celda} font-normal text-marca-300`}>—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   )
 }

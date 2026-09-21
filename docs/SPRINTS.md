@@ -193,6 +193,68 @@ El linter señaló tres problemas heredados que se corrigieron:
 
 ---
 
+## Iteración de rediseño — Retroalimentación del cliente
+
+**Origen:** tras revisar el Sprint 3, el cliente pidió rediseñar la interfaz
+tomando como referencia el simulador de créditos del Banco Pichincha. Es el valor
+ágil *colaboración con el cliente sobre negociación contractual* aplicado: el
+producto funcionaba, pero el cliente redefinió qué significa "atractivo".
+
+### Estudio del referente
+
+El simulador del banco es una aplicación JavaScript que no puede leerse
+descargando la página, así que su flujo se reconstruyó a partir de guías
+especializadas. La identidad visual, en cambio, se extrajo directamente del HTML
+y el CSS de su sitio.
+
+| Aspecto | Hallazgo en el referente | Decisión |
+|---|---|---|
+| Flujo | Pasos secuenciales: producto, monto, plazo, frecuencia, seguro, calcular | **Adoptado:** formulario en 4 pasos numerados |
+| Resultado | Cuota e ingreso mínimo requerido como cifras principales | **Adoptado:** panel de resultado fijo a la derecha |
+| Frecuencia de pago | Mensual a semestral, o al vencimiento | **Adoptado** (requirió cambios en el backend) |
+| Seguro de desgravamen | Opcional, se elige antes de calcular | **Adoptado** (requirió cambios en el backend) |
+| Ingreso mínimo | Se muestra junto a la cuota | **Adoptado** (requirió cambios en el backend) |
+| Cierre de página | Aviso legal y preguntas frecuentes en acordeón | **Adoptado** |
+| Tipo de persona y subproducto | Natural o jurídica; siete subproductos | **No adoptado:** fuera del alcance acordado |
+| Colores (`#FFDD00`, `#0F265C`) y tipografía Prelo | Identidad de marca del banco | **No adoptado:** se conserva la paleta propia |
+
+Se tomó la estructura y no la identidad de marca por decisión del cliente. Evita
+además que un repositorio público se confunda con un producto de una institución
+financiera real. Como sustituto libre de Prelo, que es una tipografía comercial,
+se usó *Source Sans 3*.
+
+### Cambios en el backend
+
+- **Frecuencia de pago** (`FrecuenciaPago`): cambia los meses por cuota, la tasa
+  periódica y el número de cuotas. El plazo debe ser múltiplo de la frecuencia.
+- **Seguro de desgravamen**: prima sobre el saldo al inicio de cada período. La
+  tasa vive en `tipos_credito`, por producto, igual que la tasa de interés.
+- **Ingreso mínimo requerido**: cuota más alta, llevada a su equivalente mensual,
+  sobre una relación cuota/ingreso del 40 %, redondeada hacia arriba.
+
+### Pruebas: 66 en verde
+
+Las 42 anteriores siguen pasando sin modificación: las firmas originales del
+motor se conservaron como atajos (mensual y sin seguro). Se agregaron 24, todas
+con valores calculados a mano. Por ejemplo: 12 000 al 12 % trimestral a 12 meses
+en alemán da cuotas de 3 360 a 3 090 e interés total de 900.
+
+### Defectos evitados durante la iteración
+
+1. **La migración habría roto el historial.** EF Core generó la columna
+   `FrecuenciaPago` con valor vacío para las simulaciones existentes, que no es
+   una frecuencia válida: leer el historial habría fallado con error 500. Se
+   corrigió para asignar `Mensual`, que es lo que eran, y se reconstruyó su
+   ingreso mínimo con la misma regla del motor.
+2. **Los errores exponían detalles internos.** Un valor inválido en el JSON
+   devolvía, en inglés, el nombre interno del tipo (`Credit.Api.Models.FrecuenciaPago`).
+   Ahora esos errores se responden en español y sin detalles de implementación.
+3. **Tasas duplicadas en el login.** El panel de acceso tenía las tasas escritas
+   en el código, desconectadas de `creditdb`: habrían quedado desactualizadas
+   al primer cambio. Se reemplazaron por los beneficios del producto.
+
+---
+
 ## Registro de evidencias
 
 Se completa al cierre de cada sprint.
@@ -202,3 +264,4 @@ Se completa al cierre de cada sprint.
 | 1 | 16/09/2026 | Registro, login y sesión persistente con JWT verificado contra la base `authdb`. 12 pruebas de aceptación en verde. | Se conservó **PostgreSQL 17**, ya instalado en el equipo, en lugar de instalar la 18: dos servidores en el mismo puerto habrían costado tiempo de configuración sin aportar valor al producto. Ejemplo directo del principio *responder ante el cambio sobre seguir un plan*. |
 | 2 | 18/09/2026 | Credit API con regla tipo → tasa, tablas francesa y alemana exactas al centavo, historial por usuario y endpoints protegidos con el JWT de la Auth API. 42 pruebas unitarias y 13 de aceptación en verde. | Se corrigió un defecto de redondeo acumulativo en el método francés, detectado por las propias pruebas del sprint. Se añadió una prueba de regresión y se documentó el caso. Se unificó la versión de EF Core (10.0.12) para eliminar un conflicto de dependencias. |
 | 3 | 20/09/2026 | Plataforma completa: formulario de simulación, tablas francesa y alemana con totales, resumen comparativo, historial e interfaz responsive. 8 pruebas de aceptación en verde. | Se añadió la vista de historial, que no figuraba en el plan original: la Credit API ya persistía las simulaciones y sin pantalla esa funcionalidad quedaba invisible. Se corrigieron tres defectos heredados del Sprint 1 detectados por el linter. |
+| Rediseño | 21/09/2026 | Interfaz reestructurada según el simulador de referencia, con frecuencia de pago, seguro de desgravamen e ingreso mínimo requerido. 66 pruebas unitarias en verde. | El cliente pidió replicar un referente comercial; se adoptó su estructura y se descartó su identidad de marca. Se evitaron dos defectos antes de que llegaran a producción: una migración que habría roto el historial y mensajes de error que exponían nombres internos. |

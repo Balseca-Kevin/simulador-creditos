@@ -23,6 +23,10 @@ public class Simulacion
 
     public int PlazoMeses { get; set; }
 
+    public FrecuenciaPago FrecuenciaPago { get; set; } = FrecuenciaPago.Mensual;
+
+    public bool IncluyeSeguroDesgravamen { get; set; }
+
     /// <summary>Tasa vigente en el momento de simular; se congela para que el historial sea fiel.</summary>
     public decimal TasaAnualAplicada { get; set; }
 
@@ -31,6 +35,9 @@ public class Simulacion
     public decimal TotalInteresFrances { get; set; }
 
     public decimal TotalInteresAleman { get; set; }
+
+    /// <summary>Ingreso mínimo para el método francés, que es el que suele contratarse.</summary>
+    public decimal IngresoMinimoRequerido { get; set; }
 
     public DateTime FechaSimulacion { get; set; } = DateTime.UtcNow;
 }

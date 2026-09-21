@@ -25,9 +25,14 @@ public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbCont
             // 5 enteros y 2 decimales alcanzan para cualquier tasa porcentual.
             entidad.Property(t => t.TasaAnual).HasPrecision(5, 2).IsRequired();
 
+            // Las primas de desgravamen son fracciones pequeñas: se guardan con 4 decimales.
+            entidad.Property(t => t.TasaSeguroDesgravamenMensual).HasPrecision(7, 4).IsRequired();
+
             entidad.HasIndex(t => t.Codigo).IsUnique();
 
-            // Tasas referenciales definidas en la sección 3 del documento oficial.
+            // Tasas de interés: sección 3 del documento oficial.
+            // Primas de desgravamen: valores referenciales del mercado ecuatoriano,
+            // más altas cuanto mayor es el riesgo del producto.
             entidad.HasData(
                 new TipoCredito
                 {
@@ -35,6 +40,7 @@ public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbCont
                     Codigo = "CONSUMO",
                     Nombre = "Crédito de Consumo",
                     TasaAnual = 15.50m,
+                    TasaSeguroDesgravamenMensual = 0.0500m,
                     Descripcion = "Adquisición de bienes de consumo o pago de servicios.",
                     Activo = true
                 },
@@ -44,6 +50,7 @@ public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbCont
                     Codigo = "INMOBILIARIO",
                     Nombre = "Crédito Inmobiliario",
                     TasaAnual = 8.50m,
+                    TasaSeguroDesgravamenMensual = 0.0400m,
                     Descripcion = "Compra, construcción o remodelación de vivienda.",
                     Activo = true
                 },
@@ -53,6 +60,7 @@ public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbCont
                     Codigo = "MICROCREDITO",
                     Nombre = "Microcrédito",
                     TasaAnual = 22.00m,
+                    TasaSeguroDesgravamenMensual = 0.0700m,
                     Descripcion = "Financiamiento para actividades productivas a pequeña escala.",
                     Activo = true
                 });
@@ -68,6 +76,13 @@ public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbCont
             entidad.Property(s => s.CuotaFija).HasPrecision(18, 2).IsRequired();
             entidad.Property(s => s.TotalInteresFrances).HasPrecision(18, 2).IsRequired();
             entidad.Property(s => s.TotalInteresAleman).HasPrecision(18, 2).IsRequired();
+            entidad.Property(s => s.IngresoMinimoRequerido).HasPrecision(18, 2).IsRequired();
+
+            // Se guarda como texto para que la base sea legible sin conocer el enum.
+            entidad.Property(s => s.FrecuenciaPago)
+                   .HasConversion<string>()
+                   .HasMaxLength(20)
+                   .IsRequired();
 
             entidad.HasOne(s => s.TipoCredito)
                    .WithMany()

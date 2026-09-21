@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Credit.Api.Data;
 using Credit.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -44,7 +45,12 @@ builder.Services.AddCors(opciones =>
         .AllowAnyHeader()
         .AllowAnyMethod()));
 
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers()
+    // Las frecuencias viajan como texto ("Trimestral") y no como número: el JSON
+    // se entiende sin conocer el enum y un valor inválido se rechaza con 400.
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()))
+    .ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = ErroresEnEspanol.Respuesta);
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

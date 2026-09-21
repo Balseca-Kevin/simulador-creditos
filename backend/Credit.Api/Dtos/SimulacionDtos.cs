@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Credit.Api.Models;
 
 namespace Credit.Api.Dtos;
 
@@ -14,6 +15,11 @@ public record SimulacionRequest
 
     [Range(1, 480, ErrorMessage = "El plazo debe estar entre 1 y 480 meses.")]
     public int PlazoMeses { get; init; }
+
+    [EnumDataType(typeof(FrecuenciaPago), ErrorMessage = "La frecuencia de pago no es válida.")]
+    public FrecuenciaPago FrecuenciaPago { get; init; } = FrecuenciaPago.Mensual;
+
+    public bool IncluirSeguroDesgravamen { get; init; } = true;
 }
 
 /// <summary>Producto crediticio tal como lo consume el frontend.</summary>
@@ -23,6 +29,7 @@ public record TipoCreditoResponse
     public required string Codigo { get; init; }
     public required string Nombre { get; init; }
     public required decimal TasaAnual { get; init; }
+    public required decimal TasaSeguroDesgravamenMensual { get; init; }
     public required string Descripcion { get; init; }
 }
 
@@ -41,8 +48,16 @@ public record SimulacionResponse
     public required TipoCreditoResponse TipoCredito { get; init; }
     public required decimal Monto { get; init; }
     public required int PlazoMeses { get; init; }
+    public required FrecuenciaPago FrecuenciaPago { get; init; }
+    public required int NumeroCuotas { get; init; }
+    public required int MesesPorPeriodo { get; init; }
+    public required bool IncluyeSeguroDesgravamen { get; init; }
     public required decimal TasaAnualAplicada { get; init; }
-    public required decimal TasaMensualAplicada { get; init; }
+    public required decimal TasaPeriodicaAplicada { get; init; }
+
+    /// <summary>Umbral de capacidad de pago usado para calcular el ingreso mínimo.</summary>
+    public required decimal RelacionCuotaIngreso { get; init; }
+
     public required TablaAmortizacion Francesa { get; init; }
     public required TablaAmortizacion Alemana { get; init; }
     public required ComparativoMetodos Comparativo { get; init; }
@@ -56,8 +71,11 @@ public record SimulacionHistorialResponse
     public required string TipoCredito { get; init; }
     public required decimal Monto { get; init; }
     public required int PlazoMeses { get; init; }
+    public required FrecuenciaPago FrecuenciaPago { get; init; }
+    public required bool IncluyeSeguroDesgravamen { get; init; }
     public required decimal TasaAnualAplicada { get; init; }
     public required decimal CuotaFija { get; init; }
     public required decimal TotalInteresFrances { get; init; }
     public required decimal TotalInteresAleman { get; init; }
+    public required decimal IngresoMinimoRequerido { get; init; }
 }

@@ -1,16 +1,22 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Humanista y legible en cifras: sustituto libre de la tipografía del referente. */
+  --font-sans: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
 
-  /* Paleta institucional del simulador */
+  /* Paleta propia del proyecto */
   --color-marca-50: oklch(0.97 0.02 250);
   --color-marca-100: oklch(0.93 0.04 250);
+  --color-marca-200: oklch(0.87 0.07 250);
   --color-marca-300: oklch(0.78 0.11 250);
   --color-marca-500: oklch(0.58 0.17 250);
   --color-marca-600: oklch(0.51 0.17 250);
   --color-marca-700: oklch(0.44 0.15 250);
+  --color-marca-800: oklch(0.36 0.12 250);
   --color-marca-900: oklch(0.29 0.09 250);
+
+  /* Superficie de fondo: blanco roto que separa las tarjetas sin recargar. */
+  --color-superficie: oklch(0.985 0.004 250);
 }
 
 html,
@@ -21,5 +27,13 @@ body,
 
 body {
   margin: 0;
+  background-color: var(--color-superficie);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Quita las flechas de los campos numéricos: el monto se edita como texto. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
