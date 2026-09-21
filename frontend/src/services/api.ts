@@ -4,8 +4,15 @@ import type {
   RespuestaAuth,
   Usuario,
 } from '../types/auth'
+import type {
+  Simulacion,
+  SimulacionHistorial,
+  SimulacionRequest,
+  TipoCredito,
+} from '../types/credito'
 
 const AUTH_API = import.meta.env.VITE_AUTH_API_URL ?? 'http://localhost:5080'
+const CREDIT_API = import.meta.env.VITE_CREDIT_API_URL ?? 'http://localhost:5090'
 
 /** Error con el mensaje que el API devolvió, listo para mostrarse al usuario. */
 export class ErrorApi extends Error {
@@ -40,14 +47,18 @@ async function interpretarError(respuesta: Response): Promise<never> {
     // El cuerpo no era JSON; se conserva el mensaje genérico.
   }
 
+  if (respuesta.status === 401) {
+    mensaje = 'Tu sesión expiró. Vuelve a iniciar sesión.'
+  }
+
   throw new ErrorApi(mensaje, respuesta.status)
 }
 
-async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<T> {
+async function pedir<T>(base: string, ruta: string, opciones: RequestInit = {}): Promise<T> {
   let respuesta: Response
 
   try {
-    respuesta = await fetch(`${AUTH_API}${ruta}`, {
+    respuesta = await fetch(`${base}${ruta}`, {
       ...opciones,
       headers: {
         'Content-Type': 'application/json',
@@ -56,7 +67,7 @@ async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<T> {
     })
   } catch {
     throw new ErrorApi(
-      'No se pudo contactar al servidor. Verifica que la Auth API esté en ejecución.',
+      'No se pudo contactar al servidor. Verifica que los servicios estén en ejecución.',
       0,
     )
   }
@@ -66,21 +77,38 @@ async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<T> {
   return respuesta.json() as Promise<T>
 }
 
+const conToken = (token: string) => ({ Authorization: `Bearer ${token}` })
+
 export const authApi = {
   registrar: (datos: DatosRegistro) =>
-    pedir<RespuestaAuth>('/api/auth/register', {
+    pedir<RespuestaAuth>(AUTH_API, '/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(datos),
     }),
 
   login: (credenciales: CredencialesLogin) =>
-    pedir<RespuestaAuth>('/api/auth/login', {
+    pedir<RespuestaAuth>(AUTH_API, '/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(credenciales),
     }),
 
   perfil: (token: string) =>
-    pedir<Usuario>('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
+    pedir<Usuario>(AUTH_API, '/api/auth/me', { headers: conToken(token) }),
+}
+
+export const creditApi = {
+  tipos: (token: string) =>
+    pedir<TipoCredito[]>(CREDIT_API, '/api/creditos/tipos', { headers: conToken(token) }),
+
+  simular: (token: string, datos: SimulacionRequest) =>
+    pedir<Simulacion>(CREDIT_API, '/api/creditos/simular', {
+      method: 'POST',
+      headers: conToken(token),
+      body: JSON.stringify(datos),
+    }),
+
+  historial: (token: string) =>
+    pedir<SimulacionHistorial[]>(CREDIT_API, '/api/creditos/historial', {
+      headers: conToken(token),
     }),
 }

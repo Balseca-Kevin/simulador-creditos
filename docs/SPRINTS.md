@@ -136,14 +136,60 @@ centavo ni se acumula. El caso quedó como prueba de regresión.
 Historias: HU-07, HU-08, HU-09
 
 Tareas técnicas:
-- [ ] Diseñar el formulario de simulación en React.
-- [ ] Renderizar ambas tablas de amortización devueltas por el API.
-- [ ] Mostrar el resumen comparativo (cuota inicial, total de intereses, total pagado).
-- [ ] Aplicar validaciones de errores de usuario y estados de carga.
-- [ ] Pulido visual y responsive.
-- [ ] Documentar la puesta en marcha en el README.
+- [x] Diseñar el formulario de simulación en React.
+- [x] Renderizar ambas tablas de amortización devueltas por el API.
+- [x] Mostrar el resumen comparativo (cuota inicial, total de intereses, total pagado).
+- [x] Aplicar validaciones de errores de usuario y estados de carga.
+- [x] Pulido visual y responsive.
+- [x] Documentar la puesta en marcha en el README.
 
 **Incremento entregable:** producto completo listo para demostración.
+
+### Pantallas y componentes entregados
+
+| Componente | Responsabilidad |
+|---|---|
+| `FormularioSimulacion` | Tarjetas de tipo de crédito con su tasa, monto, plazo con atajos y validación en vivo |
+| `ResumenSimulacion` | Cuota fija, cuota alemana inicial y final, intereses de cada método y cuál conviene |
+| `TablaAmortizacion` | Tabla con cuota, interés, capital y saldo por período, encabezado fijo y totales |
+| `HistorialSimulaciones` | Simulaciones previas del usuario, con estado vacío propio |
+
+Decisiones de interfaz:
+
+- **Encabezado fijo y desplazamiento propio en las tablas.** Un crédito a 480
+  meses genera 480 filas; sin esto la página se vuelve inmanejable y se pierde
+  de vista qué significa cada columna.
+- **Importes con `Intl.NumberFormat('es-EC')` y cifras tabulares**, para que las
+  columnas de dinero queden alineadas y sean comparables de un vistazo.
+- **La tabla del método más económico se resalta**, de modo que la comparación
+  se entienda sin leer los totales.
+- **Validación en el cliente con los mismos rangos que el API.** No la
+  reemplaza: el servidor sigue validando, pero el usuario recibe el error al
+  instante en lugar de esperar un viaje de red.
+
+### Pruebas de aceptación ejecutadas al cierre
+
+| # | Caso | Resultado esperado | Obtenido |
+|---|---|---|---|
+| 1 | Compilación del frontend (`tsc` + `vite build`) | Sin errores de tipos | ✅ 40 módulos |
+| 2 | Linter (`oxlint`) | Sin advertencias | ✅ limpio |
+| 3 | Login desde la SPA | Token recibido | ✅ 435 caracteres |
+| 4 | Carga del catálogo | 3 tarjetas con sus tasas | ✅ 15.50 / 8.50 / 22.00 |
+| 5 | Simulación de 15 000 a 24 meses | Dos tablas de 24 filas | ✅ 48 filas |
+| 6 | Tasa aplicada según el tipo | La del tipo elegido | ✅ 15.50 % |
+| 7 | Comparativo | Método más económico y diferencia | ✅ alemán, $119.00 |
+| 8 | Historial tras simular | Se actualiza solo | ✅ 5 registros |
+
+### Pulido realizado sobre el código del Sprint 1
+
+El linter señaló tres problemas heredados que se corrigieron:
+
+1. `AuthContext` exportaba a la vez el contexto y un componente, lo que rompía
+   el refresco en caliente de Vite. El contexto se movió a `contextoAuth.ts`.
+2. El estado de carga se actualizaba de forma síncrona dentro de un efecto,
+   provocando un render en cascada. Ahora se inicializa con el valor correcto.
+3. Los accesos a `localStorage` no estaban protegidos: en modo privado lanzan
+   excepción. Se envolvieron en `try/catch`, conservando la sesión en memoria.
 
 ---
 
@@ -155,4 +201,4 @@ Se completa al cierre de cada sprint.
 |---|---|---|---|
 | 1 | 16/09/2026 | Registro, login y sesión persistente con JWT verificado contra la base `authdb`. 12 pruebas de aceptación en verde. | Se conservó **PostgreSQL 17**, ya instalado en el equipo, en lugar de instalar la 18: dos servidores en el mismo puerto habrían costado tiempo de configuración sin aportar valor al producto. Ejemplo directo del principio *responder ante el cambio sobre seguir un plan*. |
 | 2 | 18/09/2026 | Credit API con regla tipo → tasa, tablas francesa y alemana exactas al centavo, historial por usuario y endpoints protegidos con el JWT de la Auth API. 42 pruebas unitarias y 13 de aceptación en verde. | Se corrigió un defecto de redondeo acumulativo en el método francés, detectado por las propias pruebas del sprint. Se añadió una prueba de regresión y se documentó el caso. Se unificó la versión de EF Core (10.0.12) para eliminar un conflicto de dependencias. |
-| 3 | | | |
+| 3 | 20/09/2026 | Plataforma completa: formulario de simulación, tablas francesa y alemana con totales, resumen comparativo, historial e interfaz responsive. 8 pruebas de aceptación en verde. | Se añadió la vista de historial, que no figuraba en el plan original: la Credit API ya persistía las simulaciones y sin pantalla esa funcionalidad quedaba invisible. Se corrigieron tres defectos heredados del Sprint 1 detectados por el linter. |

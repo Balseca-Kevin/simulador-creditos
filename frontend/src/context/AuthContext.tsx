@@ -1,34 +1,20 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { authApi } from '../services/api'
 import type { CredencialesLogin, DatosRegistro, Usuario } from '../types/auth'
-
-interface EstadoAuth {
-  usuario: Usuario | null
-  token: string | null
-  cargando: boolean
-  login: (credenciales: CredencialesLogin) => Promise<void>
-  registrar: (datos: DatosRegistro) => Promise<void>
-  cerrarSesion: () => void
-}
-
-export const AuthContext = createContext<EstadoAuth | undefined>(undefined)
-
-const CLAVE_TOKEN = 'simulador.token'
+import { AuthContext, CLAVE_TOKEN, leerTokenGuardado } from './contextoAuth'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
-  const [token, setToken] = useState<string | null>(() =>
-    localStorage.getItem(CLAVE_TOKEN),
-  )
-  const [cargando, setCargando] = useState(true)
+  const [token, setToken] = useState<string | null>(leerTokenGuardado)
+
+  // Solo hay algo que verificar si había un token guardado; así la pantalla de
+  // carga no aparece para quien entra sin sesión.
+  const [cargando, setCargando] = useState(() => leerTokenGuardado() !== null)
 
   // Al recargar la página se revalida el token guardado contra el API:
   // si expiró o fue manipulado, la sesión se descarta.
   useEffect(() => {
-    if (!token) {
-      setCargando(false)
-      return
-    }
+    if (!token) return
 
     let vigente = true
 
@@ -39,7 +25,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         if (!vigente) return
-        localStorage.removeItem(CLAVE_TOKEN)
+        try {
+          localStorage.removeItem(CLAVE_TOKEN)
+        } catch {
+          // Sin almacenamiento disponible basta con limpiar el estado en memoria.
+        }
         setToken(null)
         setUsuario(null)
       })
@@ -53,7 +43,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [token])
 
   const guardarSesion = useCallback((nuevoToken: string, nuevoUsuario: Usuario) => {
-    localStorage.setItem(CLAVE_TOKEN, nuevoToken)
+    try {
+      localStorage.setItem(CLAVE_TOKEN, nuevoToken)
+    } catch {
+      // La sesión seguirá viva en memoria aunque no se pueda persistir.
+    }
     setToken(nuevoToken)
     setUsuario(nuevoUsuario)
     setCargando(false)
@@ -76,7 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const cerrarSesion = useCallback(() => {
-    localStorage.removeItem(CLAVE_TOKEN)
+    try {
+      localStorage.removeItem(CLAVE_TOKEN)
+    } catch {
+      // Igual que arriba: limpiar el estado es suficiente.
+    }
     setToken(null)
     setUsuario(null)
   }, [])
