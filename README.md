@@ -13,29 +13,50 @@ usuario autenticarse y generar tablas de amortización comparativas por los mét
 
 ## Arquitectura
 
-| Componente | Tecnología | Responsabilidad |
-|---|---|---|
-| Frontend | React 19 + Vite + TypeScript + Tailwind CSS v4 | SPA: login, formulario de simulación y render de tablas |
-| Auth API | .NET 10 (ASP.NET Core) | Registro, login y emisión de tokens JWT |
-| Credit API | .NET 10 (ASP.NET Core) | Motor de cálculo y reglas de amortización (protegido por JWT) |
-| Persistencia | PostgreSQL 17 | `authdb` (identidades) y `creditdb` (tasas e historial) |
+| Componente | Puerto | Tecnología | Responsabilidad |
+|---|---|---|---|
+| `creditos-web` | 5173 | React 19 + Vite + TypeScript + Tailwind CSS v4 | SPA: login, formulario de simulación y tablas |
+| `ApiGateway` | 5000 | .NET 10 + YARP | Punto de entrada único; enruta hacia cada servicio |
+| `AuthService` | 5080 | .NET 10 (ASP.NET Core) | Registro, login y emisión de tokens JWT |
+| `CreditService` | 5090 | .NET 10 (ASP.NET Core) | Motor de cálculo y reglas de amortización (protegido por JWT) |
+| Persistencia | 5432 | PostgreSQL 17 | `authdb` (identidades) y `creditdb` (tasas e historial) |
 
 Se aplica el patrón **Database per Service**: cada microservicio es dueño exclusivo de
 su base de datos y ningún servicio consulta las tablas del otro.
 
+La SPA habla con un solo origen, el gateway, y no conoce los puertos de los
+servicios. El gateway **no valida el token**: lo reenvía y cada servicio decide,
+para no repetir la clave de firma en tres lugares.
+
 ```
-          ┌─────────────────┐
-          │  React SPA      │
-          └────┬───────┬────┘
-      JWT      │       │   Bearer JWT
-               ▼       ▼
-     ┌──────────────┐ ┌──────────────┐
-     │  Auth API    │ │  Credit API  │
-     └──────┬───────┘ └──────┬───────┘
-            ▼                ▼
-        [ authdb ]      [ creditdb ]
-             PostgreSQL 17
+                ┌──────────────────┐
+                │  creditos-web    │  :5173
+                └────────┬─────────┘
+                         │  Bearer JWT
+                         ▼
+                ┌──────────────────┐
+                │   ApiGateway     │  :5000
+                └───┬──────────┬───┘
+         /api/auth  │          │  /api/creditos
+                    ▼          ▼
+        ┌───────────────┐ ┌───────────────┐
+        │  AuthService  │ │ CreditService │
+        │     :5080     │ │     :5090     │
+        └───────┬───────┘ └───────┬───────┘
+                ▼                 ▼
+           [ authdb ]        [ creditdb ]
+                  PostgreSQL 17  :5432
 ```
+
+### Capas de cada microservicio
+
+| Carpeta | Contiene | Depende de |
+|---|---|---|
+| `Dominio/` | Entidades y reglas propias del negocio | nada |
+| `Aplicacion/` | Casos de uso, DTOs y servicios (motor de amortización, emisión de tokens) | `Dominio` |
+| `Estructura/` | Acceso a datos: contextos de EF Core y su configuración | `Dominio` |
+| `Presentacion/` | Controladores y formato de las respuestas HTTP | `Aplicacion` |
+| `Migrations/` | Migraciones de EF Core | `Estructura` |
 
 ## Reglas de negocio
 
@@ -78,10 +99,45 @@ al centavo para no quedar nunca por debajo del umbral.
 
 ```
 proyecto_SimuladorDeCreditos/
-├── backend/          Solución .NET (Auth.Api, Credit.Api, pruebas)
-├── frontend/         SPA en React + Vite
-├── docs/             Documento oficial, backlog y evidencias de sprint
-└── README.md
+│
+├── backend/
+│   │
+│   ├── AuthService/
+│   │   ├── Dominio/
+│   │   ├── Aplicacion/
+│   │   ├── Estructura/
+│   │   ├── Presentacion/
+│   │   ├── Migrations/
+│   │   └── Program.cs
+│   │
+│   ├── CreditService/
+│   │   ├── Dominio/
+│   │   ├── Aplicacion/
+│   │   ├── Estructura/
+│   │   ├── Presentacion/
+│   │   ├── Migrations/
+│   │   └── Program.cs
+│   │
+│   ├── CreditService.Tests/      66 pruebas del motor de amortización
+│   │
+│   ├── ApiGateway/
+│   │   ├── Program.cs
+│   │   └── appsettings.json
+│   │
+│   └── SimuladorCreditos.slnx
+│
+├── database/
+│   └── database.sql              Esquema completo, generado de las migraciones
+│
+├── frontend/
+│   └── creditos-web/
+│       ├── src/
+│       └── package.json
+│
+├── docs/                         Backlog y evidencias de cada sprint
+├── iniciar.bat                   Levanta todo el sistema
+├── README.md
+└── .gitignore
 ```
 
 ## Metodología
@@ -100,7 +156,7 @@ evidencia de cada incremento está en [docs/SPRINTS.md](docs/SPRINTS.md).
 
 ### 1. Configurar las credenciales locales
 
-El archivo `backend/Auth.Api/appsettings.Development.json` está excluido del
+El archivo `backend/AuthService/appsettings.Development.json` está excluido del
 control de versiones porque contiene la contraseña de la base y la clave de firma
 de los tokens. Créalo a partir de esta plantilla:
 
@@ -119,7 +175,7 @@ de los tokens. Créalo a partir de esta plantilla:
 }
 ```
 
-Crea también `backend/Credit.Api/appsettings.Development.json`:
+Crea también `backend/CreditService/appsettings.Development.json`:
 
 ```jsonc
 {
@@ -129,32 +185,57 @@ Crea también `backend/Credit.Api/appsettings.Development.json`:
   "Jwt": {
     "Issuer": "SimuladorCreditos.AuthApi",
     "Audience": "SimuladorCreditos.Clientes",
-    "Key": "LA_MISMA_CLAVE_QUE_EN_AUTH_API"
+    "Key": "LA_MISMA_CLAVE_QUE_EN_AUTHSERVICE"
   },
   "Cors": { "OrigenesPermitidos": [ "http://localhost:5173" ] }
 }
 ```
 
 > **Importante:** `Jwt.Key`, `Issuer` y `Audience` deben ser idénticos en ambos
-> servicios. La Credit API valida la firma de los tokens que emite la Auth API; si
+> servicios. CreditService valida la firma de los tokens que emite AuthService; si
 > las claves difieren, rechazará con 401 incluso a usuarios con sesión válida.
 
 No hace falta crear las bases a mano: al arrancar en modo desarrollo, EF Core crea
 `authdb` y `creditdb`, aplica las migraciones y siembra el catálogo de tasas.
 
-### 2. Levantar los microservicios
+### 2. Levantar el sistema
 
-En dos terminales:
+La forma corta, desde la raíz del proyecto:
+
+```
+iniciar.bat
+```
+
+Comprueba los requisitos, instala las dependencias del frontend si faltan, abre
+los cuatro componentes en ventanas separadas y lanza el navegador.
+
+Para hacerlo a mano, una terminal por componente:
 
 ```bash
-cd backend/Auth.Api
+cd backend/AuthService
 dotnet run --launch-profile http     # http://localhost:5080
 ```
 
 ```bash
-cd backend/Credit.Api
+cd backend/CreditService
 dotnet run --launch-profile http     # http://localhost:5090
 ```
+
+```bash
+cd backend/ApiGateway
+dotnet run --launch-profile http     # http://localhost:5000
+```
+
+```bash
+cd frontend/creditos-web
+npm install
+npm run dev                          # http://localhost:5173
+```
+
+Levanta el gateway **después** de los dos servicios: si recibe una petición antes
+de que estén arriba, la reenviará y responderá 502.
+
+Abre `http://localhost:5173`, regístrate y accede al simulador.
 
 ### 3. Ejecutar las pruebas
 
@@ -163,12 +244,14 @@ cd backend
 dotnet test SimuladorCreditos.slnx   # 66 pruebas del motor de amortización
 ```
 
-### 4. Levantar el frontend
+### 4. Crear el esquema con SQL (opcional)
+
+En desarrollo no hace falta: cada servicio crea su base y aplica sus migraciones
+al arrancar. Para entornos donde la aplicación no tiene permisos de DDL:
 
 ```bash
-cd frontend
-npm install
-npm run dev                          # http://localhost:5173
+psql -U postgres -h localhost -f database/database.sql
 ```
 
-Abre `http://localhost:5173`, regístrate y accede al simulador.
+El script es idempotente y se genera a partir de las migraciones, que siguen
+siendo la fuente de la verdad del esquema.

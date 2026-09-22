@@ -1,0 +1,96 @@
+using CreditService.Dominio;
+using Microsoft.EntityFrameworkCore;
+
+namespace CreditService.Estructura;
+
+/// <summary>
+/// Contexto de la base "creditdb", propiedad exclusiva del microservicio de créditos.
+/// </summary>
+public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbContext(options)
+{
+    public DbSet<TipoCredito> TiposCredito => Set<TipoCredito>();
+    public DbSet<Simulacion> Simulaciones => Set<Simulacion>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<TipoCredito>(entidad =>
+        {
+            entidad.ToTable("tipos_credito");
+            entidad.HasKey(t => t.Id);
+
+            entidad.Property(t => t.Codigo).HasMaxLength(30).IsRequired();
+            entidad.Property(t => t.Nombre).HasMaxLength(100).IsRequired();
+            entidad.Property(t => t.Descripcion).HasMaxLength(300).IsRequired();
+
+            // 5 enteros y 2 decimales alcanzan para cualquier tasa porcentual.
+            entidad.Property(t => t.TasaAnual).HasPrecision(5, 2).IsRequired();
+
+            // Las primas de desgravamen son fracciones pequeñas: se guardan con 4 decimales.
+            entidad.Property(t => t.TasaSeguroDesgravamenMensual).HasPrecision(7, 4).IsRequired();
+
+            entidad.HasIndex(t => t.Codigo).IsUnique();
+
+            // Tasas de interés: sección 3 del documento oficial.
+            // Primas de desgravamen: valores referenciales del mercado ecuatoriano,
+            // más altas cuanto mayor es el riesgo del producto.
+            entidad.HasData(
+                new TipoCredito
+                {
+                    Id = 1,
+                    Codigo = "CONSUMO",
+                    Nombre = "Crédito de Consumo",
+                    TasaAnual = 15.50m,
+                    TasaSeguroDesgravamenMensual = 0.0500m,
+                    Descripcion = "Adquisición de bienes de consumo o pago de servicios.",
+                    Activo = true
+                },
+                new TipoCredito
+                {
+                    Id = 2,
+                    Codigo = "INMOBILIARIO",
+                    Nombre = "Crédito Inmobiliario",
+                    TasaAnual = 8.50m,
+                    TasaSeguroDesgravamenMensual = 0.0400m,
+                    Descripcion = "Compra, construcción o remodelación de vivienda.",
+                    Activo = true
+                },
+                new TipoCredito
+                {
+                    Id = 3,
+                    Codigo = "MICROCREDITO",
+                    Nombre = "Microcrédito",
+                    TasaAnual = 22.00m,
+                    TasaSeguroDesgravamenMensual = 0.0700m,
+                    Descripcion = "Financiamiento para actividades productivas a pequeña escala.",
+                    Activo = true
+                });
+        });
+
+        modelBuilder.Entity<Simulacion>(entidad =>
+        {
+            entidad.ToTable("simulaciones");
+            entidad.HasKey(s => s.Id);
+
+            entidad.Property(s => s.Monto).HasPrecision(18, 2).IsRequired();
+            entidad.Property(s => s.TasaAnualAplicada).HasPrecision(5, 2).IsRequired();
+            entidad.Property(s => s.CuotaFija).HasPrecision(18, 2).IsRequired();
+            entidad.Property(s => s.TotalInteresFrances).HasPrecision(18, 2).IsRequired();
+            entidad.Property(s => s.TotalInteresAleman).HasPrecision(18, 2).IsRequired();
+            entidad.Property(s => s.IngresoMinimoRequerido).HasPrecision(18, 2).IsRequired();
+
+            // Se guarda como texto para que la base sea legible sin conocer el enum.
+            entidad.Property(s => s.FrecuenciaPago)
+                   .HasConversion<string>()
+                   .HasMaxLength(20)
+                   .IsRequired();
+
+            entidad.HasOne(s => s.TipoCredito)
+                   .WithMany()
+                   .HasForeignKey(s => s.TipoCreditoId)
+                   .OnDelete(DeleteBehavior.Restrict);
+
+            // El historial siempre se consulta por usuario y de lo más reciente a lo más antiguo.
+            entidad.HasIndex(s => new { s.UsuarioId, s.FechaSimulacion });
+        });
+    }
+}

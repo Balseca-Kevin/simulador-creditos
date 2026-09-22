@@ -255,6 +255,60 @@ en alemán da cuotas de 3 360 a 3 090 e interés total de 900.
 
 ---
 
+## Iteración de reestructuración — Alineación con la guía de la asignatura
+
+**Origen:** la guía de la asignatura define una estructura de referencia para los
+proyectos de microservicios. El proyecto funcionaba, pero organizaba el código
+con otra convención, así que se reorganizó para ajustarse a ella.
+
+### Correspondencia con la estructura de referencia
+
+| Estructura de la guía | Antes | Ahora |
+|---|---|---|
+| `backend/<Nombre>Service/` | `Auth.Api/`, `Credit.Api/` | `AuthService/`, `CreditService/` |
+| `Dominio/` | `Models/` | `Dominio/` |
+| `Aplicacion/` | `Dtos/` + `Services/` | `Aplicacion/Dtos/` + `Aplicacion/Servicios/` |
+| `Estructura/` | `Data/` | `Estructura/` |
+| `Presentacion/` | `Controllers/` | `Presentacion/` |
+| `Migrations/` | `Data/Migraciones/` | `Migrations/` |
+| `ApiGateway/` | no existía | creado con YARP |
+| `database/database.sql` | no existía | generado desde las migraciones |
+| `frontend/<nombre>-web/` | app en la raíz de `frontend/` | `frontend/creditos-web/` |
+| `iniciar.bat` | no existía | creado |
+
+### Decisiones tomadas
+
+- **Se conservan los nombres Auth y Credit.** La guía nombra el servicio de
+  identidad `IndentityService`, pero la especificación oficial de este proyecto
+  llama a los servicios **Auth API** y **Credit API**. Se adoptó la convención
+  `<Nombre>Service` sin contradecir el documento propio.
+- **Se mantiene el proyecto de pruebas**, que la estructura de referencia no
+  contempla. Eliminar 66 pruebas para cuadrar con un diagrama habría cambiado
+  un diagrama por una garantía real de que los cálculos son correctos.
+- **`ErroresEnEspanol` pasó a `Presentacion/`** y no a `Aplicacion/`: da forma a
+  las respuestas HTTP, que es responsabilidad de la capa de presentación.
+- **El gateway no valida el JWT.** Solo enruta; cada servicio valida su token.
+  Validar también en el gateway obligaría a mantener la misma clave de firma en
+  tres lugares, con el riesgo de que se desincronicen.
+
+### Efecto en el frontend
+
+La SPA ahora habla con un único origen, el gateway (`http://localhost:5000`), en
+lugar de conocer el puerto de cada microservicio. Si un servicio cambia de
+puerto, basta con editar `ApiGateway/appsettings.json`; antes había que tocar y
+recompilar la interfaz.
+
+### Verificación
+
+- 66 pruebas unitarias en verde después de mover todos los archivos y reescribir
+  los espacios de nombres.
+- Compilación de la solución y del frontend sin advertencias; linter limpio.
+- Enrutamiento comprobado extremo a extremo por el puerto 5000: login, perfil,
+  catálogo y simulación. Una petición sin token sigue devolviendo 401 y una ruta
+  no mapeada, 404, de modo que el gateway no debilitó la seguridad.
+
+---
+
 ## Registro de evidencias
 
 Se completa al cierre de cada sprint.
@@ -265,3 +319,4 @@ Se completa al cierre de cada sprint.
 | 2 | 18/09/2026 | Credit API con regla tipo → tasa, tablas francesa y alemana exactas al centavo, historial por usuario y endpoints protegidos con el JWT de la Auth API. 42 pruebas unitarias y 13 de aceptación en verde. | Se corrigió un defecto de redondeo acumulativo en el método francés, detectado por las propias pruebas del sprint. Se añadió una prueba de regresión y se documentó el caso. Se unificó la versión de EF Core (10.0.12) para eliminar un conflicto de dependencias. |
 | 3 | 20/09/2026 | Plataforma completa: formulario de simulación, tablas francesa y alemana con totales, resumen comparativo, historial e interfaz responsive. 8 pruebas de aceptación en verde. | Se añadió la vista de historial, que no figuraba en el plan original: la Credit API ya persistía las simulaciones y sin pantalla esa funcionalidad quedaba invisible. Se corrigieron tres defectos heredados del Sprint 1 detectados por el linter. |
 | Rediseño | 21/09/2026 | Interfaz reestructurada según el simulador de referencia, con frecuencia de pago, seguro de desgravamen e ingreso mínimo requerido. 66 pruebas unitarias en verde. | El cliente pidió replicar un referente comercial; se adoptó su estructura y se descartó su identidad de marca. Se evitaron dos defectos antes de que llegaran a producción: una migración que habría roto el historial y mensajes de error que exponían nombres internos. |
+| Reestructuración | 22/09/2026 | Proyecto reorganizado según la estructura de referencia de la asignatura: capas Dominio, Aplicacion, Estructura, Presentacion y Migrations en cada servicio, más ApiGateway, `database/database.sql`, `frontend/creditos-web/` e `iniciar.bat`. 66 pruebas en verde tras el cambio. | Se conservaron los nombres Auth y Credit para no contradecir la especificación propia del proyecto, y se mantuvo el proyecto de pruebas, que la estructura de referencia no contempla. |
