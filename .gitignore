@@ -27,3 +27,6 @@ Thumbs.db
 # ---------- Secretos ----------
 *.pfx
 secrets.json
+
+# ---------- Archivos personales, fuera del repositorio ----------
+presentación.md

@@ -52,11 +52,21 @@ para no repetir la clave de firma en tres lugares.
 
 | Carpeta | Contiene | Depende de |
 |---|---|---|
-| `Dominio/` | Entidades y reglas propias del negocio | nada |
-| `Aplicacion/` | Casos de uso, DTOs y servicios (motor de amortización, emisión de tokens) | `Dominio` |
-| `Estructura/` | Acceso a datos: contextos de EF Core y su configuración | `Dominio` |
+| `Dominio/` | Entidades y reglas propias del negocio | **nada** |
+| `Aplicacion/Contratos/` | Interfaces de repositorio y el tipo `Resultado<T>` | `Dominio` |
+| `Aplicacion/Dtos/` | Objetos de entrada y salida de los casos de uso | — |
+| `Aplicacion/Servicios/` | Casos de uso: motor de amortización, emisión de tokens, orquestación | `Dominio`, `Contratos` |
+| `Estructura/` | Contextos de EF Core y los repositorios que implementan los contratos | `Dominio`, `Contratos` |
 | `Presentacion/` | Controladores y formato de las respuestas HTTP | `Aplicacion` |
 | `Migrations/` | Migraciones de EF Core | `Estructura` |
+
+La dependencia con la base de datos está **invertida**: `Aplicacion` declara qué
+necesita (`IRepositorioUsuarios`, `IRepositorioCreditos`) y `Estructura` lo
+implementa con EF Core. Las dos se conectan en `Program.cs`, al arrancar.
+
+Como consecuencia, `Aplicacion` no conoce EF Core y `Presentacion` no conoce la
+base de datos: los controladores solo traducen entre HTTP y casos de uso, y el
+`Resultado<T>` que reciben indica el motivo del fallo sin hablar de códigos HTTP.
 
 ## Reglas de negocio
 

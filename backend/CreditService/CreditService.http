@@ -1,13 +1,16 @@
-# Peticiones de prueba de la Credit API.
+# Peticiones de prueba de CreditService.
 # Se ejecutan desde VS Code con la extensión "REST Client".
-# Requiere la Auth API en marcha: el token se obtiene de ella.
+#
+# Por omisión van por el ApiGateway, que es el camino real que usa la SPA.
+# Para depurar el servicio aislado, cambia {{base}} por {{directo}}.
 
-@auth = http://localhost:5080
-@credit = http://localhost:5090
+@gateway = http://localhost:5000
+@directo = http://localhost:5090
+@base = {{gateway}}
 
-### 1. Obtener un token de la Auth API
+### 1. Obtener un token (el gateway lo enruta a AuthService)
 # @name login
-POST {{auth}}/api/auth/login
+POST {{base}}/api/auth/login
 Content-Type: application/json
 
 {
@@ -15,24 +18,54 @@ Content-Type: application/json
   "password": "Simulador2026"
 }
 
-### 2. Catálogo de tipos de crédito y sus tasas
-GET {{credit}}/api/creditos/tipos
+### 2. Catálogo de tipos de crédito, sus tasas y primas de desgravamen
+GET {{base}}/api/creditos/tipos
 Authorization: Bearer {{login.response.body.token}}
 
-### 3. Simular: Crédito de Consumo, 10 000 a 12 meses
-POST {{credit}}/api/creditos/simular
+### 3. Simular: Crédito de Consumo, 10 000 a 24 meses, mensual, con seguro
+POST {{base}}/api/creditos/simular
 Authorization: Bearer {{login.response.body.token}}
 Content-Type: application/json
 
 {
   "tipoCreditoId": 1,
   "monto": 10000,
-  "plazoMeses": 12
+  "plazoMeses": 24,
+  "frecuenciaPago": "Mensual",
+  "incluirSeguroDesgravamen": true
 }
 
-### 4. Historial del usuario autenticado
-GET {{credit}}/api/creditos/historial
+### 4. Simular con pago trimestral y sin seguro
+POST {{base}}/api/creditos/simular
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "tipoCreditoId": 3,
+  "monto": 12000,
+  "plazoMeses": 24,
+  "frecuenciaPago": "Trimestral",
+  "incluirSeguroDesgravamen": false
+}
+
+### 5. Historial del usuario autenticado
+GET {{base}}/api/creditos/historial
 Authorization: Bearer {{login.response.body.token}}
 
-### 5. Sin token: debe responder 401
-GET {{credit}}/api/creditos/tipos
+### 6. Sin token: debe responder 401
+GET {{base}}/api/creditos/tipos
+
+### 7. Plazo incompatible con la frecuencia: debe responder 400
+POST {{base}}/api/creditos/simular
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "tipoCreditoId": 1,
+  "monto": 10000,
+  "plazoMeses": 10,
+  "frecuenciaPago": "Trimestral"
+}
+
+### 8. Comprobar el servicio directamente, sin pasar por el gateway
+GET {{directo}}/health

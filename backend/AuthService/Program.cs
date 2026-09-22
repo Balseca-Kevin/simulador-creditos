@@ -1,6 +1,8 @@
 using System.Text;
-using AuthService.Estructura;
+using AuthService.Aplicacion.Contratos;
 using AuthService.Aplicacion.Servicios;
+using AuthService.Estructura;
+using AuthService.Estructura.Repositorios;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -17,6 +19,12 @@ builder.Services.AddDbContext<AuthDbContext>(opciones =>
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection(JwtOptions.SeccionConfiguracion));
 builder.Services.AddScoped<ITokenService, TokenService>();
+
+// ---------- Casos de uso y acceso a datos ----------
+// La interfaz del repositorio vive en Aplicacion y su implementacion en
+// Estructura: es aqui, en el arranque, donde se conectan las dos capas.
+builder.Services.AddScoped<IRepositorioUsuarios, RepositorioUsuarios>();
+builder.Services.AddScoped<IServicioAutenticacion, ServicioAutenticacion>();
 
 // ---------- Validación de tokens ----------
 var jwt = builder.Configuration.GetSection(JwtOptions.SeccionConfiguracion).Get<JwtOptions>()

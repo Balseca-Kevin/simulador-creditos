@@ -1,13 +1,15 @@
-# Peticiones de prueba de la Auth API.
+# Peticiones de prueba de AuthService.
 # Se ejecutan desde VS Code con la extensión "REST Client".
+#
+# Por omisión van por el ApiGateway, que es el camino real que usa la SPA.
+# Para depurar el servicio aislado, cambia {{base}} por {{directo}}.
 
-@auth = http://localhost:5080
-
-### Estado del servicio
-GET {{auth}}/health
+@gateway = http://localhost:5000
+@directo = http://localhost:5080
+@base = {{gateway}}
 
 ### Registrar una cuenta
-POST {{auth}}/api/auth/register
+POST {{base}}/api/auth/register
 Content-Type: application/json
 
 {
@@ -18,7 +20,7 @@ Content-Type: application/json
 
 ### Iniciar sesión (guarda el token para la siguiente petición)
 # @name login
-POST {{auth}}/api/auth/login
+POST {{base}}/api/auth/login
 Content-Type: application/json
 
 {
@@ -27,5 +29,17 @@ Content-Type: application/json
 }
 
 ### Perfil del portador del token
-GET {{auth}}/api/auth/me
+GET {{base}}/api/auth/me
 Authorization: Bearer {{login.response.body.token}}
+
+### Credenciales incorrectas: debe responder 401
+POST {{base}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "prueba@uta.edu.ec",
+  "password": "incorrecta"
+}
+
+### Comprobar el servicio directamente, sin pasar por el gateway
+GET {{directo}}/health

@@ -298,10 +298,28 @@ lugar de conocer el puerto de cada microservicio. Si un servicio cambia de
 puerto, basta con editar `ApiGateway/appsettings.json`; antes había que tocar y
 recompilar la interfaz.
 
+### Refuerzo posterior de las capas
+
+La primera reorganización dejó los controladores usando el `DbContext`
+directamente, de modo que `Presentacion` dependía de `Estructura`. Las carpetas
+eran correctas, pero la separación no era real. Se corrigió invirtiendo la
+dependencia:
+
+- `Aplicacion/Contratos/` declara las interfaces de repositorio y el tipo
+  `Resultado<T>`, que expresa el motivo de un fallo sin hablar de HTTP.
+- `Estructura/Repositorios/` las implementa con EF Core.
+- `Aplicacion/Servicios/` concentra los casos de uso que antes vivían en los
+  controladores: registro, login, perfil, catálogo, simulación e historial.
+- Los controladores quedaron reducidos a traducir entre HTTP y casos de uso.
+
+Resultado comprobado con una revisión de los `using` de cada capa: `Dominio` no
+importa nada, `Aplicacion` no conoce EF Core ni `Estructura`, y `Presentacion`
+no conoce la base de datos.
+
 ### Verificación
 
-- 66 pruebas unitarias en verde después de mover todos los archivos y reescribir
-  los espacios de nombres.
+- 66 pruebas unitarias en verde después de mover todos los archivos, reescribir
+  los espacios de nombres y refactorizar las capas.
 - Compilación de la solución y del frontend sin advertencias; linter limpio.
 - Enrutamiento comprobado extremo a extremo por el puerto 5000: login, perfil,
   catálogo y simulación. Una petición sin token sigue devolviendo 401 y una ruta

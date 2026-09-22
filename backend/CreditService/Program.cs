@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using CreditService.Aplicacion.Contratos;
 using CreditService.Aplicacion.Servicios;
 using CreditService.Estructura;
+using CreditService.Estructura.Repositorios;
 using CreditService.Presentacion;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +18,12 @@ builder.Services.AddDbContext<CreditDbContext>(opciones =>
     opciones.UseNpgsql(builder.Configuration.GetConnectionString("CreditDb")));
 
 builder.Services.AddScoped<IMotorAmortizacion, MotorAmortizacion>();
+
+// ---------- Casos de uso y acceso a datos ----------
+// La interfaz del repositorio vive en Aplicacion y su implementacion en
+// Estructura: es aqui, en el arranque, donde se conectan las dos capas.
+builder.Services.AddScoped<IRepositorioCreditos, RepositorioCreditos>();
+builder.Services.AddScoped<IServicioSimulacion, ServicioSimulacion>();
 
 // ---------- Validación de los tokens emitidos por la Auth API ----------
 var jwt = builder.Configuration.GetSection(JwtOptions.SeccionConfiguracion).Get<JwtOptions>()

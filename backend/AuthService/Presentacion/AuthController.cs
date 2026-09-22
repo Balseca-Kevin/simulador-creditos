@@ -1,17 +1,20 @@
 using System.Security.Claims;
-using AuthService.Estructura;
+using AuthService.Aplicacion.Contratos;
 using AuthService.Aplicacion.Dtos;
-using AuthService.Dominio;
 using AuthService.Aplicacion.Servicios;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace AuthService.Presentacion;
 
+/// <summary>
+/// Traduce entre HTTP y los casos de uso de <see cref="IServicioAutenticacion"/>.
+/// No conoce la base de datos: recibe una solicitud, delega y convierte el
+/// resultado en el código de estado que corresponde.
+/// </summary>
 [ApiController]
 [Route("api/auth")]
-public class AuthController(AuthDbContext contexto, ITokenService tokenService) : ControllerBase
+public class AuthController(IServicioAutenticacion autenticacion) : ControllerBase
 {
     /// <summary>HU-01: registra una cuenta nueva y devuelve la sesión ya iniciada.</summary>
     [HttpPost("register")]
@@ -19,24 +22,11 @@ public class AuthController(AuthDbContext contexto, ITokenService tokenService) 
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AuthResponse>> Registrar(RegistroRequest solicitud)
     {
-        var email = solicitud.Email.Trim().ToLowerInvariant();
+        var resultado = await autenticacion.Registrar(solicitud);
 
-        if (await contexto.Usuarios.AnyAsync(u => u.Email == email))
-        {
-            return Conflict(new { mensaje = "Ya existe una cuenta registrada con ese correo." });
-        }
-
-        var usuario = new Usuario
-        {
-            NombreCompleto = solicitud.NombreCompleto.Trim(),
-            Email = email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(solicitud.Password)
-        };
-
-        contexto.Usuarios.Add(usuario);
-        await contexto.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(Perfil), null, ConstruirRespuesta(usuario));
+        return resultado.Exito
+            ? CreatedAtAction(nameof(Perfil), null, resultado.Valor)
+            : Traducir(resultado);
     }
 
     /// <summary>HU-02: valida credenciales y emite el JWT de acceso.</summary>
@@ -45,17 +35,9 @@ public class AuthController(AuthDbContext contexto, ITokenService tokenService) 
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest solicitud)
     {
-        var email = solicitud.Email.Trim().ToLowerInvariant();
-        var usuario = await contexto.Usuarios.SingleOrDefaultAsync(u => u.Email == email);
+        var resultado = await autenticacion.Login(solicitud);
 
-        // Se responde igual si el correo no existe o si la contraseña es incorrecta,
-        // para no revelar qué correos están registrados.
-        if (usuario is null || !BCrypt.Net.BCrypt.Verify(solicitud.Password, usuario.PasswordHash))
-        {
-            return Unauthorized(new { mensaje = "Correo o contraseña incorrectos." });
-        }
-
-        return Ok(ConstruirRespuesta(usuario));
+        return resultado.Exito ? Ok(resultado.Valor) : Traducir(resultado);
     }
 
     /// <summary>Devuelve el perfil del portador del token; sirve para revalidar la sesión al recargar la SPA.</summary>
@@ -65,38 +47,29 @@ public class AuthController(AuthDbContext contexto, ITokenService tokenService) 
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<UsuarioResponse>> Perfil()
     {
-        var idTexto = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                      ?? User.FindFirstValue("sub");
+        if (!TryObtenerUsuario(out var id)) return Unauthorized();
 
-        if (!Guid.TryParse(idTexto, out var id))
-        {
-            return Unauthorized();
-        }
+        var resultado = await autenticacion.Perfil(id);
 
-        var usuario = await contexto.Usuarios.FindAsync(id);
-
-        return usuario is null
-            ? Unauthorized()
-            : Ok(ProyectarUsuario(usuario));
+        return resultado.Exito ? Ok(resultado.Valor) : Traducir(resultado);
     }
 
-    private AuthResponse ConstruirRespuesta(Usuario usuario)
+    private bool TryObtenerUsuario(out Guid usuarioId)
     {
-        var (token, expiraEn) = tokenService.Generar(usuario);
+        var idTexto = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(idTexto, out usuarioId);
+    }
 
-        return new AuthResponse
+    /// <summary>Convierte el motivo del fallo en el código HTTP equivalente.</summary>
+    private ObjectResult Traducir<T>(Resultado<T> resultado)
+    {
+        var cuerpo = new { mensaje = resultado.Mensaje };
+
+        return resultado.Motivo switch
         {
-            Token = token,
-            ExpiraEn = expiraEn,
-            Usuario = ProyectarUsuario(usuario)
+            MotivoFallo.Conflicto => Conflict(cuerpo),
+            MotivoFallo.NoAutorizado => Unauthorized(cuerpo),
+            _ => BadRequest(cuerpo)
         };
     }
-
-    private static UsuarioResponse ProyectarUsuario(Usuario usuario) => new()
-    {
-        Id = usuario.Id,
-        NombreCompleto = usuario.NombreCompleto,
-        Email = usuario.Email,
-        FechaRegistro = usuario.FechaRegistro
-    };
 }
