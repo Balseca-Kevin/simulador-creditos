@@ -10,11 +10,19 @@ namespace CreditService.Estructura.Repositorios;
 /// </summary>
 public class RepositorioCreditos(CreditDbContext contexto) : IRepositorioCreditos
 {
+    /// <summary>
+    /// Se ordena por categoría y, dentro de ella, por Id. El orden importa:
+    /// la lista desplegable agrupa por categoría comparando cada elemento con
+    /// el anterior, así que si los productos de una misma familia no quedan
+    /// contiguos su encabezado aparecería repetido. El Id como segundo criterio
+    /// mantiene primero los tipos del documento oficial dentro de cada familia.
+    /// </summary>
     public async Task<IReadOnlyList<TipoCredito>> ListarTiposActivos() =>
         await contexto.TiposCredito
             .AsNoTracking()
             .Where(t => t.Activo)
-            .OrderBy(t => t.Id)
+            .OrderBy(t => t.Categoria)
+            .ThenBy(t => t.Id)
             .ToListAsync();
 
     public Task<TipoCredito?> BuscarTipoActivo(int id) =>
