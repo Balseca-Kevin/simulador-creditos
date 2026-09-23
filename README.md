@@ -170,17 +170,35 @@ evidencia de cada incremento está en [docs/SPRINTS.md](docs/SPRINTS.md).
 
 ## Puesta en marcha
 
+### Guía para un nuevo colaborador
+
+Después de clonar el repositorio, el proyecto se puede levantar desde una instalación limpia.
+No es necesario copiar `bin/`, `obj/`, `node_modules/` ni `dist/`: se regeneran localmente.
+
+```bash
+git clone https://github.com/Balseca-Kevin/simulador-creditos.git
+cd simulador-creditos
+```
+
 ### Requisitos
 
+- Git
 - .NET SDK 10
 - Node.js 22 o superior
 - PostgreSQL 15 o superior, escuchando en `localhost:5432`
+
+Comprueba las versiones con `git --version`, `dotnet --version`, `node --version`,
+`npm --version` y `psql --version`.
+
+Cada colaborador necesita permisos para crear bases de datos en PostgreSQL. La contraseña
+del usuario `postgres` es local y nunca debe subirse a GitHub.
 
 ### 1. Configurar las credenciales locales
 
 El archivo `backend/AuthService/appsettings.Development.json` está excluido del
 control de versiones porque contiene la contraseña de la base y la clave de firma
-de los tokens. Créalo a partir de esta plantilla:
+de los tokens. Créalo a partir de esta plantilla y reemplaza `TU_CONTRASEÑA` por
+la contraseña local del usuario `postgres`:
 
 ```jsonc
 {
@@ -217,12 +235,17 @@ Crea también `backend/CreditService/appsettings.Development.json`:
 > servicios. CreditService valida la firma de los tokens que emite AuthService; si
 > las claves difieren, rechazará con 401 incluso a usuarios con sesión válida.
 
-No hace falta crear las bases a mano: al arrancar en modo desarrollo, EF Core crea
-`authdb` y `creditdb`, aplica las migraciones y siembra el catálogo de tasas.
+Estos dos archivos están excluidos por `.gitignore`, así que cada persona debe
+crearlos en su propia copia. No se debe publicar una contraseña ni una clave JWT.
+
+Comprueba que PostgreSQL esté iniciado y escuchando en `5432`. No hace falta crear
+`authdb` ni `creditdb` a mano: en desarrollo EF Core crea las bases, aplica las
+migraciones y siembra el catálogo de tasas. Si el usuario no puede crear bases,
+un administrador debe crearlas previamente o concederle ese permiso.
 
 ### 2. Levantar el sistema
 
-La forma corta, desde la raíz del proyecto:
+La forma corta, desde la raíz del proyecto en Windows, es:
 
 ```
 iniciar.bat
@@ -230,6 +253,14 @@ iniciar.bat
 
 Comprueba los requisitos, instala las dependencias del frontend si faltan, abre
 los cuatro componentes en ventanas separadas y lanza el navegador.
+
+En PowerShell, si `npm` está bloqueado por la política de ejecución, usa `npm.cmd`:
+
+```powershell
+cd frontend/creditos-web
+npm.cmd install
+npm.cmd run build
+```
 
 Para hacerlo a mano, una terminal por componente:
 
@@ -258,6 +289,11 @@ Levanta el gateway **después** de los dos servicios: si recibe una petición an
 de que estén arriba, la reenviará y responderá 502.
 
 Abre `http://localhost:5173`, regístrate y accede al simulador.
+
+Para comprobar que todo quedó disponible, visita `/health` en los puertos `5080`,
+`5090` y `5000`, y abre `http://localhost:5173`. Los tres endpoints de backend
+deben responder con HTTP `200`. Si aparece `address already in use`, ya existe
+otro proceso usando ese puerto; ciérralo o reutiliza el proceso existente.
 
 ### 3. Ejecutar las pruebas
 
