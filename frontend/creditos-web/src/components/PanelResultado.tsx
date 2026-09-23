@@ -7,6 +7,8 @@ interface Props {
   simulacion: Simulacion | null
   metodo: Metodo
   abriendoReporte: boolean
+  /** Valor total de las garantias declaradas; nulo si aun no se conoce. */
+  patrimonio: number | null
   onCambiarMetodo: (metodo: Metodo) => void
   onVerReporte: () => void
 }
@@ -44,7 +46,14 @@ function Vacio() {
  * Resumen que acompaña al formulario. En escritorio queda fijo a la derecha
  * mientras se ajustan los datos, como en los simuladores bancarios de referencia.
  */
-export function PanelResultado({ simulacion, metodo, abriendoReporte, onCambiarMetodo, onVerReporte }: Props) {
+export function PanelResultado({
+  simulacion,
+  metodo,
+  abriendoReporte,
+  patrimonio,
+  onCambiarMetodo,
+  onVerReporte,
+}: Props) {
   return (
     <aside
       aria-live="polite"
@@ -57,6 +66,7 @@ export function PanelResultado({ simulacion, metodo, abriendoReporte, onCambiarM
           simulacion={simulacion}
           metodo={metodo}
           abriendoReporte={abriendoReporte}
+          patrimonio={patrimonio}
           onCambiarMetodo={onCambiarMetodo}
           onVerReporte={onVerReporte}
         />
@@ -65,7 +75,14 @@ export function PanelResultado({ simulacion, metodo, abriendoReporte, onCambiarM
   )
 }
 
-function Contenido({ simulacion, metodo, abriendoReporte, onCambiarMetodo, onVerReporte }: Props & { simulacion: Simulacion }) {
+function Contenido({
+  simulacion,
+  metodo,
+  abriendoReporte,
+  patrimonio,
+  onCambiarMetodo,
+  onVerReporte,
+}: Props & { simulacion: Simulacion }) {
   const tabla = metodo === 'Frances' ? simulacion.francesa : simulacion.alemana
   const frecuencia = opcionFrecuencia(simulacion.frecuenciaPago)
   const esUnica = simulacion.numeroCuotas === 1
@@ -123,6 +140,17 @@ function Contenido({ simulacion, metodo, abriendoReporte, onCambiarMetodo, onVer
         <p className="mt-1 text-xs text-marca-700">
           Para que la cuota más alta no supere el {umbral} % de tus ingresos.
         </p>
+
+        {/* El patrimonio lo aporta AssetService: la SPA une lo que devuelven dos
+            microservicios sin que ellos se conozcan entre sí. */}
+        {patrimonio !== null && (
+          <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-marca-200 pt-3">
+            <span className="text-xs text-marca-700">Tu patrimonio declarado</span>
+            <span className="text-sm font-semibold tabular-nums text-marca-800">
+              {moneda(patrimonio)}
+            </span>
+          </div>
+        )}
       </div>
 
       <dl className="divide-y divide-slate-100 px-6 py-2">

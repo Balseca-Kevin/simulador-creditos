@@ -7,7 +7,7 @@ import { type Metodo, PanelResultado } from '../components/PanelResultado'
 import { PreguntasFrecuentes } from '../components/PreguntasFrecuentes'
 import { SeccionComparativa } from '../components/SeccionComparativa'
 import { useAuth } from '../hooks/useAuth'
-import { creditApi } from '../services/api'
+import { assetApi, creditApi } from '../services/api'
 import type { Simulacion, SimulacionHistorial, SimulacionRequest, TipoCredito } from '../types/credito'
 
 const BENEFICIOS = [
@@ -29,6 +29,9 @@ export function SimuladorPage() {
   const [cargandoCatalogo, setCargandoCatalogo] = useState(true)
   const [simulando, setSimulando] = useState(false)
   const [abriendoReporte, setAbriendoReporte] = useState(false)
+
+  /** Patrimonio declarado, que aporta AssetService. Nulo mientras no se conoce. */
+  const [patrimonio, setPatrimonio] = useState<number | null>(null)
   const [error, setError] = useState('')
 
   const panelRef = useRef<HTMLDivElement>(null)
@@ -60,6 +63,15 @@ export function SimuladorPage() {
       }
 
       await cargarHistorial()
+
+      // El patrimonio es complementario: si AssetService no responde, el
+      // simulador sigue funcionando y el dato simplemente no se muestra.
+      try {
+        const resumen = await assetApi.resumen(token)
+        if (vigente) setPatrimonio(resumen.valorTotal)
+      } catch {
+        if (vigente) setPatrimonio(null)
+      }
     }
 
     void cargarDatosIniciales()
@@ -187,6 +199,7 @@ export function SimuladorPage() {
               simulacion={simulacion}
               metodo={metodo}
               abriendoReporte={abriendoReporte}
+              patrimonio={patrimonio}
               onCambiarMetodo={setMetodo}
               onVerReporte={abrirReporte}
             />

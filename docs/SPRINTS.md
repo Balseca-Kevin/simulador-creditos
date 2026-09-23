@@ -464,6 +464,82 @@ columnas repetido en cada una y numeración continua.
 
 ---
 
+## Iteración de arquitectura y nuevo microservicio
+
+**Origen:** tres peticiones del cliente: confirmar el uso de Entity Framework
+como ORM, hacer que el proyecto sea microservicios "por completo" con Onion
+dentro de cada uno, y agregar un microservicio de activos.
+
+### 1. ORM: ya se cumplía
+
+El proyecto usaba **EF Core 10.0.12 con Npgsql** desde el Sprint 1: un
+`DbContext` por servicio, migraciones versionadas y repositorios. No había nada
+que reconfigurar, y se dijo así en lugar de inventar trabajo.
+
+### 2. Onion impuesta por el compilador
+
+Lo que ya se cumplía de microservicios: base de datos por servicio, procesos
+independientes, sin código compartido, sin llamadas entre servicios y un gateway
+como punto de entrada.
+
+Lo que faltaba: las capas eran **carpetas dentro de un único proyecto**. La
+separación se respetaba por disciplina, pero nada impedía escribir
+`using Estructura` desde `Aplicacion` y que compilara igual.
+
+Cada capa pasó a ser un proyecto con referencias solo hacia adentro:
+
+| Proyecto | Referencia a |
+|---|---|
+| `Dominio` | nada |
+| `Aplicacion` | `Dominio` |
+| `Estructura` | `Aplicacion` |
+| `Presentacion` | `Aplicacion` |
+| anfitrión | `Estructura`, `Presentacion` |
+
+Dos detalles que hubo que resolver al separar:
+
+- El contexto de EF quedó en `Estructura` pero las migraciones siguen en el
+  anfitrión, que es donde el esquema de la asignatura las ubica. Se indica con
+  `MigrationsAssembly`, porque EF las busca junto al contexto.
+- Los controladores ya no están en el ensamblado de entrada, así que se registra
+  su proyecto con `AddApplicationPart` para que ASP.NET los descubra.
+
+**Comprobación:** se añadió a propósito un `using CreditService.Estructura`
+dentro de `Aplicacion`. El compilador lo rechazó con `error CS0234`, que es
+justamente lo que antes no ocurría.
+
+### 3. AssetService (puerto 5005, base `assetdb`)
+
+La descripción venía del Sistema de Depreciación y no mencionaba créditos, así
+que se consultó qué debían representar los activos aquí. Se definieron como
+**garantías del solicitante**: bienes que respaldan su solicitud.
+
+- Cinco categorías sembradas por migración: vehículo, inmueble, maquinaria,
+  inversión financiera y otros bienes.
+- CRUD completo de activos, más un resumen del patrimonio agrupado por categoría.
+- Cada operación filtra por el usuario del token: pedir un activo ajeno por su
+  identificador devuelve **404**, no el bien de otra persona.
+- Pantalla propia en la SPA, con formulario, listado y confirmación al eliminar.
+
+**Los tres servicios siguen sin conocerse.** El patrimonio aparece junto al
+ingreso mínimo porque la SPA consulta a CreditService y a AssetService y une los
+resultados; si AssetService no responde, el simulador sigue funcionando y el dato
+simplemente no se muestra.
+
+### Verificación
+
+- Solución de 14 proyectos compilando sin advertencias; 66 pruebas en verde tras
+  mover todos los archivos.
+- CRUD probado extremo a extremo por el gateway, incluidos los casos de error:
+  nombre corto, valor cero, categoría inexistente, fecha futura y fecha ilegible,
+  todos con mensaje en español.
+- Aislamiento entre usuarios comprobado: leer y eliminar un activo ajeno
+  devuelven 404 y el dueño lo conserva.
+- `iniciar.bat` levanta ahora los cinco componentes; `database.sql` incluye las
+  tres bases y las cinco tablas.
+
+---
+
 ## Registro de evidencias
 
 Se completa al cierre de cada sprint.
@@ -477,3 +553,4 @@ Se completa al cierre de cada sprint.
 | Reestructuración | 22/09/2026 | Proyecto reorganizado según la estructura de referencia de la asignatura: capas Dominio, Aplicacion, Estructura, Presentacion y Migrations en cada servicio, más ApiGateway, `database/database.sql`, `frontend/creditos-web/` e `iniciar.bat`. 66 pruebas en verde tras el cambio. | Se conservaron los nombres Auth y Credit para no contradecir la especificación propia del proyecto, y se mantuvo el proyecto de pruebas, que la estructura de referencia no contempla. |
 | Catálogo | 23/09/2026 | Catálogo ampliado de 3 a 10 tipos con las tasas del BCE de agosto 2026, agrupados en 5 categorías. Formulario con listas desplegables que permiten escribir y muestran la cuota estimada de cada opción. | La estimación se resolvió en el servidor y no en el navegador, para no duplicar el motor de amortización en dos lenguajes. Se verificó que coincide al centavo con la simulación real en los 10 tipos. Se descartaron los segmentos vehicular y comercial por no existir en la tabla del BCE. |
 | Reporte PDF | 23/09/2026 | La tabla de amortización se entrega como reporte PDF de varias páginas, que se abre en el visor del navegador con paginación, impresión y descarga. La página conserva solo la comparación de los dos métodos. | El PDF se genera en el servidor reutilizando la respuesta de la simulación, para que no pueda mostrar cifras distintas a la pantalla. La pestaña se abre con un enlace de un solo uso en lugar de poner el token de sesión en la URL. Al revisar el documento generado se corrigieron dos defectos de presentación. |
+| Arquitectura | 23/09/2026 | Cada capa pasa a ser un proyecto independiente, de modo que el compilador impone la cebolla. Se agrega AssetService (puerto 5005, base `assetdb`) con CRUD de garantías, resumen de patrimonio y pantalla propia. 14 proyectos y 66 pruebas en verde. | Se confirmó que el requisito del ORM ya estaba cumplido con EF Core y no se inventó trabajo. Los activos se definieron como garantías del solicitante tras consultarlo, en lugar de copiar un CRUD sin relación con el dominio. Los servicios siguen sin conocerse: es la SPA quien une sus datos. |

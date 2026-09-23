@@ -5,6 +5,12 @@ import type {
   Usuario,
 } from '../types/auth'
 import type {
+  Activo,
+  ActivoRequest,
+  CategoriaActivo,
+  ResumenPatrimonio,
+} from '../types/activo'
+import type {
   EnlaceReporte,
   Estimaciones,
   EstimacionesRequest,
@@ -140,5 +146,45 @@ export const creditApi = {
     )
 
     return { ...enlace, url: `${API}${enlace.url}` }
+  },
+}
+
+/**
+ * Activos declarados por el usuario, que en el simulador funcionan como
+ * respaldo patrimonial. Los atiende AssetService, aunque la SPA no lo sepa:
+ * para ella es otra ruta del mismo gateway.
+ */
+export const assetApi = {
+  categorias: (token: string) =>
+    pedir<CategoriaActivo[]>(API, '/api/categorias', { headers: conToken(token) }),
+
+  listar: (token: string) =>
+    pedir<Activo[]>(API, '/api/activos', { headers: conToken(token) }),
+
+  resumen: (token: string) =>
+    pedir<ResumenPatrimonio>(API, '/api/activos/resumen', { headers: conToken(token) }),
+
+  crear: (token: string, datos: ActivoRequest) =>
+    pedir<Activo>(API, '/api/activos', {
+      method: 'POST',
+      headers: conToken(token),
+      body: JSON.stringify(datos),
+    }),
+
+  actualizar: (token: string, id: string, datos: ActivoRequest) =>
+    pedir<Activo>(API, `/api/activos/${id}`, {
+      method: 'PUT',
+      headers: conToken(token),
+      body: JSON.stringify(datos),
+    }),
+
+  /** Devuelve 204 sin cuerpo, así que no se intenta interpretar la respuesta. */
+  eliminar: async (token: string, id: string) => {
+    const respuesta = await fetch(`${API}/api/activos/${id}`, {
+      method: 'DELETE',
+      headers: conToken(token),
+    })
+
+    if (!respuesta.ok) await interpretarError(respuesta)
   },
 }

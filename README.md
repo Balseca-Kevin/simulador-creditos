@@ -15,11 +15,12 @@ usuario autenticarse y generar tablas de amortización comparativas por los mét
 
 | Componente | Puerto | Tecnología | Responsabilidad |
 |---|---|---|---|
-| `creditos-web` | 5173 | React 19 + Vite + TypeScript + Tailwind CSS v4 | SPA: login, formulario de simulación y tablas |
+| `creditos-web` | 5173 | React 19 + Vite + TypeScript + Tailwind CSS v4 | SPA: login, simulación y garantías |
 | `ApiGateway` | 5000 | .NET 10 + YARP | Punto de entrada único; enruta hacia cada servicio |
 | `AuthService` | 5080 | .NET 10 (ASP.NET Core) | Registro, login y emisión de tokens JWT |
-| `CreditService` | 5090 | .NET 10 (ASP.NET Core) | Motor de cálculo y reglas de amortización (protegido por JWT) |
-| Persistencia | 5432 | PostgreSQL 17 | `authdb` (identidades) y `creditdb` (tasas e historial) |
+| `CreditService` | 5090 | .NET 10 (ASP.NET Core) | Motor de cálculo, reglas de amortización y reporte PDF |
+| `AssetService` | 5005 | .NET 10 (ASP.NET Core) | Activos y categorías: garantías declaradas por el usuario |
+| Persistencia | 5432 | PostgreSQL 17 + EF Core | `authdb`, `creditdb` y `assetdb`, una por servicio |
 
 Se aplica el patrón **Database per Service**: cada microservicio es dueño exclusivo de
 su base de datos y ningún servicio consulta las tablas del otro.
@@ -29,44 +30,57 @@ servicios. El gateway **no valida el token**: lo reenvía y cada servicio decide
 para no repetir la clave de firma en tres lugares.
 
 ```
-                ┌──────────────────┐
-                │  creditos-web    │  :5173
-                └────────┬─────────┘
-                         │  Bearer JWT
-                         ▼
-                ┌──────────────────┐
-                │   ApiGateway     │  :5000
-                └───┬──────────┬───┘
-         /api/auth  │          │  /api/creditos
-                    ▼          ▼
-        ┌───────────────┐ ┌───────────────┐
-        │  AuthService  │ │ CreditService │
-        │     :5080     │ │     :5090     │
-        └───────┬───────┘ └───────┬───────┘
-                ▼                 ▼
-           [ authdb ]        [ creditdb ]
-                  PostgreSQL 17  :5432
+                      ┌──────────────────┐
+                      │  creditos-web    │  :5173
+                      └────────┬─────────┘
+                               │  Bearer JWT
+                               ▼
+                      ┌──────────────────┐
+                      │   ApiGateway     │  :5000
+                      └──┬────────┬────┬─┘
+               /api/auth │        │    │ /api/activos
+                         │        │    │ /api/categorias
+                         │        │    └──────────────┐
+                         │        │ /api/creditos     │
+                         ▼        ▼                   ▼
+            ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+            │  AuthService  │ │ CreditService │ │ AssetService  │
+            │     :5080     │ │     :5090     │ │     :5005     │
+            └───────┬───────┘ └───────┬───────┘ └───────┬───────┘
+                    ▼                 ▼                 ▼
+               [ authdb ]        [ creditdb ]      [ assetdb ]
+                          PostgreSQL 17  :5432
 ```
 
-### Capas de cada microservicio
+Los tres servicios son independientes: **ninguno llama a otro**. El patrimonio
+declarado aparece junto al ingreso mínimo porque la SPA consulta a los dos y une
+los resultados, no porque CreditService conozca a AssetService.
 
-| Carpeta | Contiene | Depende de |
+### Arquitectura Onion dentro de cada microservicio
+
+Cada capa es **un proyecto propio**, no una carpeta. Las referencias apuntan solo
+hacia adentro, así que romper una capa deja de ser un descuido posible y pasa a
+ser un error de compilación.
+
+| Proyecto | Contiene | Referencia a |
 |---|---|---|
-| `Dominio/` | Entidades y reglas propias del negocio | **nada** |
-| `Aplicacion/Contratos/` | Interfaces de repositorio y el tipo `Resultado<T>` | `Dominio` |
-| `Aplicacion/Dtos/` | Objetos de entrada y salida de los casos de uso | — |
-| `Aplicacion/Servicios/` | Casos de uso: motor de amortización, emisión de tokens, orquestación | `Dominio`, `Contratos` |
-| `Estructura/` | Contextos de EF Core y los repositorios que implementan los contratos | `Dominio`, `Contratos` |
-| `Presentacion/` | Controladores y formato de las respuestas HTTP | `Aplicacion` |
-| `Migrations/` | Migraciones de EF Core | `Estructura` |
+| `Dominio` | Entidades y reglas propias del negocio | **nada** |
+| `Aplicacion` | Contratos, DTOs y casos de uso | `Dominio` |
+| `Estructura` | EF Core, repositorios, generación de PDF | `Aplicacion` |
+| `Presentacion` | Controladores y formato de las respuestas HTTP | `Aplicacion` |
+| *(anfitrión)* | `Program.cs`, configuración y `Migrations/` | `Estructura`, `Presentacion` |
 
 La dependencia con la base de datos está **invertida**: `Aplicacion` declara qué
-necesita (`IRepositorioUsuarios`, `IRepositorioCreditos`) y `Estructura` lo
-implementa con EF Core. Las dos se conectan en `Program.cs`, al arrancar.
+necesita (`IRepositorioUsuarios`, `IRepositorioCreditos`, `IRepositorioActivos`)
+y `Estructura` lo implementa. Las dos se encuentran solo en el anfitrión, al
+arrancar.
 
 Como consecuencia, `Aplicacion` no conoce EF Core y `Presentacion` no conoce la
 base de datos: los controladores solo traducen entre HTTP y casos de uso, y el
 `Resultado<T>` que reciben indica el motivo del fallo sin hablar de códigos HTTP.
+
+Comprobado añadiendo a propósito un `using CreditService.Estructura` dentro de
+`Aplicacion`: el compilador lo rechaza con `error CS0234`.
 
 ## Reglas de negocio
 
@@ -129,6 +143,19 @@ La cuota más alta de la tabla, llevada a su equivalente mensual, dividida para
 0.40: la cuota no debe superar el **40 % del ingreso**. Se redondea hacia arriba
 al centavo para no quedar nunca por debajo del umbral.
 
+### Garantías declaradas
+
+El usuario registra los bienes que respaldan su solicitud —vehículos, inmuebles,
+maquinaria, inversiones u otros— con su valor estimado y su fecha de adquisición.
+Las cinco categorías viven en `assetdb` y se administran por migración, igual que
+las tasas.
+
+Cada bien queda ligado al usuario del token, y las consultas filtran por él: pedir
+un activo ajeno por su identificador devuelve 404, no el bien de otra persona.
+
+El simulador muestra el patrimonio total junto al ingreso mínimo requerido, para
+poder mirar la cuota y el respaldo a la vez.
+
 ## Estructura del repositorio
 
 ```
@@ -136,7 +163,15 @@ proyecto_SimuladorDeCreditos/
 │
 ├── backend/
 │   │
-│   ├── AuthService/
+│   ├── AuthService/              Cada capa es un proyecto independiente
+│   │   ├── Dominio/                AuthService.Dominio.csproj
+│   │   ├── Aplicacion/             AuthService.Aplicacion.csproj
+│   │   ├── Estructura/             AuthService.Estructura.csproj
+│   │   ├── Presentacion/           AuthService.Presentacion.csproj
+│   │   ├── Migrations/
+│   │   └── Program.cs              AuthService.csproj (anfitrión)
+│   │
+│   ├── CreditService/            Misma estructura de capas
 │   │   ├── Dominio/
 │   │   ├── Aplicacion/
 │   │   ├── Estructura/
@@ -144,7 +179,7 @@ proyecto_SimuladorDeCreditos/
 │   │   ├── Migrations/
 │   │   └── Program.cs
 │   │
-│   ├── CreditService/
+│   ├── AssetService/             Misma estructura de capas
 │   │   ├── Dominio/
 │   │   ├── Aplicacion/
 │   │   ├── Estructura/
@@ -161,7 +196,7 @@ proyecto_SimuladorDeCreditos/
 │   └── SimuladorCreditos.slnx
 │
 ├── database/
-│   └── database.sql              Esquema completo, generado de las migraciones
+│   └── database.sql              Las 3 bases, generado de las migraciones
 │
 ├── frontend/
 │   └── creditos-web/
@@ -243,17 +278,34 @@ Crea también `backend/CreditService/appsettings.Development.json`:
 }
 ```
 
-> **Importante:** `Jwt.Key`, `Issuer` y `Audience` deben ser idénticos en ambos
-> servicios. CreditService valida la firma de los tokens que emite AuthService; si
-> las claves difieren, rechazará con 401 incluso a usuarios con sesión válida.
+Y `backend/AssetService/appsettings.Development.json`:
 
-Estos dos archivos están excluidos por `.gitignore`, así que cada persona debe
+```jsonc
+{
+  "ConnectionStrings": {
+    "AssetDb": "Host=localhost;Port=5432;Database=assetdb;Username=postgres;Password=TU_CONTRASEÑA"
+  },
+  "Jwt": {
+    "Issuer": "SimuladorCreditos.AuthApi",
+    "Audience": "SimuladorCreditos.Clientes",
+    "Key": "LA_MISMA_CLAVE_QUE_EN_AUTHSERVICE"
+  },
+  "Cors": { "OrigenesPermitidos": [ "http://localhost:5173" ] }
+}
+```
+
+> **Importante:** `Jwt.Key`, `Issuer` y `Audience` deben ser idénticos en los tres
+> servicios. CreditService y AssetService validan la firma de los tokens que emite
+> AuthService; si las claves difieren, rechazarán con 401 incluso a usuarios con
+> sesión válida.
+
+Estos tres archivos están excluidos por `.gitignore`, así que cada persona debe
 crearlos en su propia copia. No se debe publicar una contraseña ni una clave JWT.
 
 Comprueba que PostgreSQL esté iniciado y escuchando en `5432`. No hace falta crear
-`authdb` ni `creditdb` a mano: en desarrollo EF Core crea las bases, aplica las
-migraciones y siembra el catálogo de tasas. Si el usuario no puede crear bases,
-un administrador debe crearlas previamente o concederle ese permiso.
+las bases a mano: en desarrollo EF Core crea `authdb`, `creditdb` y `assetdb`,
+aplica las migraciones y siembra los catálogos. Si el usuario no puede crear
+bases, un administrador debe crearlas previamente o concederle ese permiso.
 
 ### 2. Levantar el sistema
 
@@ -284,6 +336,11 @@ dotnet run --launch-profile http     # http://localhost:5080
 ```bash
 cd backend/CreditService
 dotnet run --launch-profile http     # http://localhost:5090
+```
+
+```bash
+cd backend/AssetService
+dotnet run --launch-profile http     # http://localhost:5005
 ```
 
 ```bash

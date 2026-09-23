@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CreditService\CreditService.csproj" />
+    <ProjectReference Include="..\CreditService\Aplicacion\CreditService.Aplicacion.csproj" />
   </ItemGroup>
 
 </Project>

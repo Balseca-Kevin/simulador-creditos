@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>CreditService.Dominio</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    El centro de la cebolla no referencia ningun otro proyecto ni paquete de
+    infraestructura. Si alguna vez hiciera falta agregar uno aqui, seria senal
+    de que la regla se esta rompiendo.
+  -->
+
+</Project>

@@ -1,3 +1,4 @@
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { Isotipo } from './Isotipo'
 
@@ -9,6 +10,11 @@ function iniciales(nombre: string) {
     .map((parte) => parte[0]?.toUpperCase())
     .join('')
 }
+
+const SECCIONES = [
+  { ruta: '/simulador', texto: 'Simulador' },
+  { ruta: '/garantias', texto: 'Mis garantías' },
+]
 
 export function EncabezadoApp() {
   const { usuario, cerrarSesion } = useAuth()
@@ -23,6 +29,24 @@ export function EncabezadoApp() {
             <p className="hidden text-xs text-slate-500 sm:block">Universidad Técnica de Ambato</p>
           </div>
         </div>
+
+        {usuario && (
+          <nav aria-label="Secciones" className="flex items-center gap-1">
+            {SECCIONES.map(({ ruta, texto }) => (
+              <NavLink
+                key={ruta}
+                to={ruta}
+                className={({ isActive }) =>
+                  `rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    isActive ? 'bg-marca-50 text-marca-700' : 'text-slate-600 hover:bg-slate-100'
+                  }`
+                }
+              >
+                {texto}
+              </NavLink>
+            ))}
+          </nav>
+        )}
 
         {usuario && (
           <div className="flex items-center gap-3">

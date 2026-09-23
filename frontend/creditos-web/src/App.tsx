@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { RutaProtegida } from './components/RutaProtegida'
 import { AuthProvider } from './context/AuthContext'
+import { GarantiasPage } from './pages/GarantiasPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegistroPage } from './pages/RegistroPage'
 import { SimuladorPage } from './pages/SimuladorPage'
@@ -15,6 +16,7 @@ export default function App() {
 
           <Route element={<RutaProtegida />}>
             <Route path="/simulador" element={<SimuladorPage />} />
+            <Route path="/garantias" element={<GarantiasPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/simulador" replace />} />

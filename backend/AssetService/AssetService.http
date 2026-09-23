@@ -1,0 +1,98 @@
+# Peticiones de prueba de AssetService.
+# Se ejecutan desde VS Code con la extensión "REST Client".
+#
+# Por omisión van por el ApiGateway, que es el camino real que usa la SPA.
+# Para depurar el servicio aislado, cambia {{base}} por {{directo}}.
+
+@gateway = http://localhost:5000
+@directo = http://localhost:5005
+@base = {{gateway}}
+
+### 1. Obtener un token (el gateway lo enruta a AuthService)
+# @name login
+POST {{base}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "prueba@uta.edu.ec",
+  "password": "Simulador2026"
+}
+
+### 2. Catálogo de categorías de activo
+GET {{base}}/api/categorias
+Authorization: Bearer {{login.response.body.token}}
+
+### 3. Registrar un activo
+# @name crear
+POST {{base}}/api/activos
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "categoriaId": 1,
+  "nombre": "Camioneta Mazda BT-50",
+  "descripcion": "Modelo 2022, uso particular",
+  "valorEstimado": 32000,
+  "fechaAdquisicion": "2022-03-15"
+}
+
+### 4. Listar los activos del usuario
+GET {{base}}/api/activos
+Authorization: Bearer {{login.response.body.token}}
+
+### 5. Consultar uno por su identificador
+GET {{base}}/api/activos/{{crear.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
+
+### 6. Actualizar su valor estimado
+PUT {{base}}/api/activos/{{crear.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "categoriaId": 1,
+  "nombre": "Camioneta Mazda BT-50",
+  "descripcion": "Modelo 2022, uso particular",
+  "valorEstimado": 30000,
+  "fechaAdquisicion": "2022-03-15"
+}
+
+### 7. Resumen del patrimonio declarado
+GET {{base}}/api/activos/resumen
+Authorization: Bearer {{login.response.body.token}}
+
+### 8. Eliminar el activo
+DELETE {{base}}/api/activos/{{crear.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
+
+### 9. Categoría inexistente: debe responder 400
+POST {{base}}/api/activos
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "categoriaId": 99,
+  "nombre": "Bien de prueba",
+  "descripcion": "",
+  "valorEstimado": 1000,
+  "fechaAdquisicion": "2020-01-01"
+}
+
+### 10. Fecha futura: debe responder 400
+POST {{base}}/api/activos
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "categoriaId": 1,
+  "nombre": "Bien de prueba",
+  "descripcion": "",
+  "valorEstimado": 1000,
+  "fechaAdquisicion": "2030-01-01"
+}
+
+### 11. Sin token: debe responder 401
+GET {{base}}/api/activos
+
+### 12. Comprobar el servicio directamente, sin pasar por el gateway
+GET {{directo}}/health

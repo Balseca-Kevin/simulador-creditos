@@ -6,11 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <!--
-    Proyecto anfitrion del microservicio: arranca el proceso y conecta las capas
-    en Program.cs. Las carpetas de las capas son proyectos propios, asi que se
-    excluyen de la compilacion de este para no compilarlas dos veces.
-  -->
   <ItemGroup>
     <Compile Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
     <EmbeddedResource Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
@@ -18,8 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="Estructura\CreditService.Estructura.csproj" />
-    <ProjectReference Include="Presentacion\CreditService.Presentacion.csproj" />
+    <ProjectReference Include="Estructura\AssetService.Estructura.csproj" />
+    <ProjectReference Include="Presentacion\AssetService.Presentacion.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -60,33 +60,41 @@ if not exist "backend\CreditService\appsettings.Development.json" (
     echo         Crealo siguiendo la seccion "Puesta en marcha" del README.
     goto :fin
 )
+if not exist "backend\AssetService\appsettings.Development.json" (
+    echo [ERROR] Falta backend\AssetService\appsettings.Development.json
+    echo         Crealo siguiendo la seccion "Puesta en marcha" del README.
+    goto :fin
+)
 
 REM --- Dependencias del frontend ---------------------------------------------
 
 if not exist "frontend\creditos-web\node_modules" (
-    echo [1/5] Instalando dependencias del frontend, esto tarda un momento...
+    echo [1/6] Instalando dependencias del frontend, esto tarda un momento...
     pushd "frontend\creditos-web"
     call npm install
     popd
 ) else (
-    echo [1/5] Dependencias del frontend ya instaladas.
+    echo [1/6] Dependencias del frontend ya instaladas.
 )
 
 REM --- Arranque ---------------------------------------------------------------
 
-echo [2/5] Iniciando AuthService    ^(puerto 5080^)...
+echo [2/6] Iniciando AuthService    ^(puerto 5080^)...
 start "AuthService  :5080" cmd /k "cd /d ""%~dp0backend\AuthService"" && dotnet run --launch-profile http"
 
-echo [3/5] Iniciando CreditService  ^(puerto 5090^)...
+echo [3/6] Iniciando CreditService  ^(puerto 5090^)...
 start "CreditService :5090" cmd /k "cd /d ""%~dp0backend\CreditService"" && dotnet run --launch-profile http"
+
+echo [4/6] Iniciando AssetService   ^(puerto 5005^)...
+start "AssetService  :5005" cmd /k "cd /d ""%~dp0backend\AssetService"" && dotnet run --launch-profile http"
 
 REM El gateway espera un poco: si arranca antes que los servicios, las primeras
 REM peticiones que reenvie fallarian con 502.
-echo [4/5] Iniciando ApiGateway     ^(puerto 5000^)...
+echo [5/6] Iniciando ApiGateway     ^(puerto 5000^)...
 timeout /t 8 /nobreak >nul
 start "ApiGateway   :5000" cmd /k "cd /d ""%~dp0backend\ApiGateway"" && dotnet run --launch-profile http"
 
-echo [5/5] Iniciando creditos-web   ^(puerto 5173^)...
+echo [6/6] Iniciando creditos-web   ^(puerto 5173^)...
 start "creditos-web :5173" cmd /k "cd /d ""%~dp0frontend\creditos-web"" && npm run dev"
 
 echo.
@@ -97,7 +105,7 @@ start "" "http://localhost:5173"
 echo.
 echo ===========================================================
 echo   Todo iniciado. Abre http://localhost:5173
-echo   Para detener: cierra las cuatro ventanas abiertas.
+echo   Para detener: cierra las cinco ventanas abiertas.
 echo ===========================================================
 
 :fin

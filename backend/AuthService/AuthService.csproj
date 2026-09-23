@@ -6,16 +6,32 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!--
+    Proyecto anfitrion del microservicio: arranca el proceso y conecta las capas
+    en Program.cs. Es el unico punto donde Aplicacion y Estructura se encuentran.
+
+    Las carpetas de las capas son proyectos propios, asi que se excluyen de la
+    compilacion de este: de lo contrario sus archivos se compilarian dos veces.
+  -->
   <ItemGroup>
-    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
+    <Compile Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
+    <EmbeddedResource Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
+    <None Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="Estructura\AuthService.Estructura.csproj" />
+    <ProjectReference Include="Presentacion\AuthService.Presentacion.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <!-- Solo para el comando dotnet ef; las migraciones viven en este proyecto. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
 
 </Project>
