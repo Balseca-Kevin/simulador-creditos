@@ -4,6 +4,7 @@ export interface TipoCredito {
   id: number
   codigo: string
   nombre: string
+  categoria: string
   tasaAnual: number
   tasaSeguroDesgravamenMensual: number
   descripcion: string
@@ -80,4 +81,40 @@ export interface SimulacionHistorial {
   totalInteresFrances: number
   totalInteresAleman: number
   ingresoMinimoRequerido: number
+}
+
+export interface EstimacionesRequest {
+  tipoCreditoId: number
+  monto: number
+  plazoMeses: number
+  frecuenciaPago: FrecuenciaPago
+  incluirSeguroDesgravamen: boolean
+}
+
+export interface EstimacionTipo {
+  tipoCreditoId: number
+  nombre: string
+  categoria: string
+  descripcion: string
+  tasaAnual: number
+  cuotaEstimada: number | null
+  ingresoMinimoRequerido: number | null
+}
+
+export interface EstimacionMonto {
+  monto: number
+  cuotaEstimada: number | null
+}
+
+export interface EstimacionPlazo {
+  plazoMeses: number
+  compatibleConFrecuencia: boolean
+  cuotaEstimada: number | null
+}
+
+export interface Estimaciones {
+  porTipo: EstimacionTipo[]
+  porMonto: EstimacionMonto[]
+  porPlazo: EstimacionPlazo[]
+  metodo: string
 }

@@ -5,6 +5,8 @@ import type {
   Usuario,
 } from '../types/auth'
 import type {
+  Estimaciones,
+  EstimacionesRequest,
   Simulacion,
   SimulacionHistorial,
   SimulacionRequest,
@@ -114,5 +116,13 @@ export const creditApi = {
   historial: (token: string) =>
     pedir<SimulacionHistorial[]>(API, '/api/creditos/historial', {
       headers: conToken(token),
+    }),
+
+  /** Cuota que resultaria con cada opcion de los desplegables. */
+  estimaciones: (token: string, datos: EstimacionesRequest) =>
+    pedir<Estimaciones>(API, '/api/creditos/estimaciones', {
+      method: 'POST',
+      headers: conToken(token),
+      body: JSON.stringify(datos),
     }),
 }

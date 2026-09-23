@@ -48,6 +48,19 @@ Content-Type: application/json
   "incluirSeguroDesgravamen": false
 }
 
+### 4b. Estimaciones: cuota que daría cada opción de los desplegables
+POST {{base}}/api/creditos/estimaciones
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "tipoCreditoId": 1,
+  "monto": 10000,
+  "plazoMeses": 24,
+  "frecuenciaPago": "Mensual",
+  "incluirSeguroDesgravamen": true
+}
+
 ### 5. Historial del usuario autenticado
 GET {{base}}/api/creditos/historial
 Authorization: Bearer {{login.response.body.token}}

@@ -28,6 +28,7 @@ public record TipoCreditoResponse
     public required int Id { get; init; }
     public required string Codigo { get; init; }
     public required string Nombre { get; init; }
+    public required string Categoria { get; init; }
     public required decimal TasaAnual { get; init; }
     public required decimal TasaSeguroDesgravamenMensual { get; init; }
     public required string Descripcion { get; init; }

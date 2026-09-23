@@ -327,6 +327,71 @@ no conoce la base de datos.
 
 ---
 
+## Iteración de catálogo y listas desplegables
+
+**Origen:** el cliente pidió ampliar el catálogo de tipos de crédito y sustituir
+las opciones sueltas del formulario por listas desplegables que además
+permitieran escribir un valor propio y anticipar la estimación de cada opción.
+
+### Factibilidad medida antes de decidir
+
+| Punto | Estado previo |
+|---|---|
+| Catálogo | En `tipos_credito`, sembrado por migración |
+| Backend | No asume ningún número de tipos: lee el catálogo completo |
+| Pruebas | Independientes del catálogo; reciben la tasa por parámetro |
+| Frontend | **Un único punto rígido:** la rejilla `md:grid-cols-3` de las tarjetas |
+
+Agregar tipos resultó ser una migración con filas nuevas. El único obstáculo era
+la presentación en tarjetas, que es justo lo que el desplegable resuelve.
+
+### Catálogo ampliado de 3 a 10 tipos
+
+Se conservaron intactas las tasas de los tres tipos del documento oficial
+(15.50 / 8.50 / 22.00), que son las que debe verificarse. Los siete nuevos usan
+las tasas activas efectivas referenciales del **Banco Central del Ecuador,
+agosto de 2026**, y se agruparon en cinco categorías: Consumo, Vivienda,
+Microcrédito, Productivo y Educativo.
+
+El BCE publica Consumo al 15.78 % e Inmobiliario al 8.72 %, valores distintos a
+los del documento del proyecto. Por eso los nuevos segmentos se añadieron como
+filas aparte en lugar de sobrescribir las tasas originales.
+
+Dos segmentos que se habían considerado no existen en la tabla del BCE:
+**vehicular** (los vehículos se financian dentro de Consumo) y **comercial**. No
+se inventaron.
+
+### Estimación por opción, resuelta en el servidor
+
+Cada opción de las listas muestra la cuota que resultaría al elegirla. Se calcula
+en un endpoint nuevo, `POST /api/creditos/estimaciones`, y no en el navegador.
+
+El motivo es concreto: calcularlo en el cliente habría obligado a **reescribir el
+motor de amortización en JavaScript**, dejando dos fuentes de verdad para la
+misma matemática del dinero. Resolviéndolo en el servidor, la cifra que anticipa
+la lista sale del mismo motor que la simulación final y no puede desviarse.
+
+Comprobado: para los 10 tipos, la estimación de la lista coincide **al centavo**
+con la `primeraCuotaTotal` que devuelve la simulación real.
+
+### Detalles de la interfaz
+
+- `ListaDesplegable` se implementó a mano y no con `<select>` ni `<datalist>`:
+  ninguno permite mostrar dos líneas de texto más una cifra alineada por opción,
+  ni darles estilo consistente entre navegadores. Incluye navegación por teclado,
+  filtrado al escribir y agrupación por categoría.
+- En el tipo de crédito, escribir **filtra**; el valor siempre sale del catálogo.
+  En monto y plazo, lo que se escribe **es** el valor.
+- El monto o plazo escrito por el usuario se añade a la lista, en su posición
+  ordenada y con su propia estimación.
+- Las combinaciones imposibles (un plazo que no se divide en la frecuencia
+  elegida) se muestran deshabilitadas y **sin cuota**, en lugar de mostrar una
+  cifra inventada.
+- Las estimaciones se piden con 400 ms de espera para no lanzar una llamada por
+  cada tecla, y si fallan el formulario sigue siendo utilizable sin ellas.
+
+---
+
 ## Registro de evidencias
 
 Se completa al cierre de cada sprint.
@@ -337,4 +402,5 @@ Se completa al cierre de cada sprint.
 | 2 | 18/09/2026 | Credit API con regla tipo → tasa, tablas francesa y alemana exactas al centavo, historial por usuario y endpoints protegidos con el JWT de la Auth API. 42 pruebas unitarias y 13 de aceptación en verde. | Se corrigió un defecto de redondeo acumulativo en el método francés, detectado por las propias pruebas del sprint. Se añadió una prueba de regresión y se documentó el caso. Se unificó la versión de EF Core (10.0.12) para eliminar un conflicto de dependencias. |
 | 3 | 20/09/2026 | Plataforma completa: formulario de simulación, tablas francesa y alemana con totales, resumen comparativo, historial e interfaz responsive. 8 pruebas de aceptación en verde. | Se añadió la vista de historial, que no figuraba en el plan original: la Credit API ya persistía las simulaciones y sin pantalla esa funcionalidad quedaba invisible. Se corrigieron tres defectos heredados del Sprint 1 detectados por el linter. |
 | Rediseño | 21/09/2026 | Interfaz reestructurada según el simulador de referencia, con frecuencia de pago, seguro de desgravamen e ingreso mínimo requerido. 66 pruebas unitarias en verde. | El cliente pidió replicar un referente comercial; se adoptó su estructura y se descartó su identidad de marca. Se evitaron dos defectos antes de que llegaran a producción: una migración que habría roto el historial y mensajes de error que exponían nombres internos. |
+| Catálogo | 23/09/2026 | Catálogo ampliado de 3 a 10 tipos con las tasas del BCE de agosto 2026, agrupados en 5 categorías. Formulario con listas desplegables que permiten escribir y muestran la cuota estimada de cada opción. | La estimación se resolvió en el servidor y no en el navegador, para no duplicar el motor de amortización en dos lenguajes. Se verificó que coincide al centavo con la simulación real en los 10 tipos. Se descartaron los segmentos vehicular y comercial por no existir en la tabla del BCE. |
 | Reestructuración | 22/09/2026 | Proyecto reorganizado según la estructura de referencia de la asignatura: capas Dominio, Aplicacion, Estructura, Presentacion y Migrations en cada servicio, más ApiGateway, `database/database.sql`, `frontend/creditos-web/` e `iniciar.bat`. 66 pruebas en verde tras el cambio. | Se conservaron los nombres Auth y Credit para no contradecir la especificación propia del proyecto, y se mantuvo el proyecto de pruebas, que la estructura de referencia no contempla. |

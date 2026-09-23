@@ -73,15 +73,27 @@ base de datos: los controladores solo traducen entre HTTP y casos de uso, y el
 El tipo de crédito determina la tasa de interés anual y la prima del seguro de
 desgravamen aplicadas:
 
-| Tipo de crédito | Tasa anual | Desgravamen mensual | Descripción |
+| Categoría | Tipo de crédito | Tasa anual | Desgravamen mensual |
 |---|---|---|---|
-| Crédito de Consumo | 15.50 % | 0.05 % del saldo | Adquisición de bienes de consumo o pago de servicios |
-| Crédito Inmobiliario | 8.50 % | 0.04 % del saldo | Compra, construcción o remodelación de vivienda |
-| Microcrédito | 22.00 % | 0.07 % del saldo | Financiamiento para actividades productivas a pequeña escala |
+| Consumo | Crédito de Consumo | 15.50 % | 0.0500 % |
+| Vivienda | Crédito Inmobiliario | 8.50 % | 0.0400 % |
+| Vivienda | Vivienda de Interés Social | 4.99 % | 0.0400 % |
+| Vivienda | Vivienda de Interés Público | 4.99 % | 0.0400 % |
+| Microcrédito | Microcrédito | 22.00 % | 0.0700 % |
+| Productivo | Productivo Corporativo | 6.79 % | 0.0300 % |
+| Productivo | Productivo Empresarial | 8.62 % | 0.0350 % |
+| Productivo | Productivo PYMES | 9.18 % | 0.0450 % |
+| Educativo | Crédito Educativo | 8.95 % | 0.0450 % |
+| Educativo | Crédito Educativo Social | 5.49 % | 0.0400 % |
+
+Las tres primeras filas conservan la tasa fijada en la sección 3 del documento
+oficial del proyecto. El resto corresponde a los segmentos del Banco Central del
+Ecuador, con sus **tasas activas efectivas referenciales de agosto de 2026**.
 
 Las tasas se almacenan en `creditdb`, no están fijadas en el código: la regla es
-dinámica y puede actualizarse sin recompilar los servicios. Las primas de
-desgravamen son valores referenciales del mercado ecuatoriano.
+dinámica y agregar un tipo nuevo es una migración con una fila más, sin tocar el
+motor ni la interfaz. Las primas de desgravamen son valores referenciales de
+mercado: más bajas a mayor plazo y garantía, más altas a mayor riesgo.
 
 ### Métodos de amortización
 

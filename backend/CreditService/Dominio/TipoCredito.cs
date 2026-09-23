@@ -14,6 +14,12 @@ public class TipoCredito
 
     public string Nombre { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Familia a la que pertenece el producto (Consumo, Vivienda, Productivo...).
+    /// Sirve para agrupar el catálogo cuando la lista crece.
+    /// </summary>
+    public string Categoria { get; set; } = string.Empty;
+
     /// <summary>Tasa de interés referencial anual, expresada en porcentaje (15.50 = 15.50 %).</summary>
     public decimal TasaAnual { get; set; }
 

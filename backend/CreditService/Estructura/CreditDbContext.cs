@@ -20,6 +20,7 @@ public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbCont
 
             entidad.Property(t => t.Codigo).HasMaxLength(30).IsRequired();
             entidad.Property(t => t.Nombre).HasMaxLength(100).IsRequired();
+            entidad.Property(t => t.Categoria).HasMaxLength(40).IsRequired();
             entidad.Property(t => t.Descripcion).HasMaxLength(300).IsRequired();
 
             // 5 enteros y 2 decimales alcanzan para cualquier tasa porcentual.
@@ -30,15 +31,24 @@ public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbCont
 
             entidad.HasIndex(t => t.Codigo).IsUnique();
 
-            // Tasas de interés: sección 3 del documento oficial.
-            // Primas de desgravamen: valores referenciales del mercado ecuatoriano,
-            // más altas cuanto mayor es el riesgo del producto.
+            // Los tres primeros conservan la tasa fijada en la sección 3 del
+            // documento oficial del proyecto, que es la que debe verificarse.
+            //
+            // Los siguientes amplían el catálogo con los segmentos definidos por
+            // el Banco Central del Ecuador, usando sus tasas activas efectivas
+            // referenciales de agosto de 2026. Difieren ligeramente de las tres
+            // primeras (el BCE publica Consumo 15.78 % e Inmobiliario 8.72 %),
+            // y por eso se añaden como segmentos aparte en lugar de sobrescribirlas.
+            //
+            // Las primas de desgravamen son valores referenciales del mercado:
+            // más bajas a mayor plazo y garantía, más altas a mayor riesgo.
             entidad.HasData(
                 new TipoCredito
                 {
                     Id = 1,
                     Codigo = "CONSUMO",
                     Nombre = "Crédito de Consumo",
+                    Categoria = "Consumo",
                     TasaAnual = 15.50m,
                     TasaSeguroDesgravamenMensual = 0.0500m,
                     Descripcion = "Adquisición de bienes de consumo o pago de servicios.",
@@ -49,6 +59,7 @@ public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbCont
                     Id = 2,
                     Codigo = "INMOBILIARIO",
                     Nombre = "Crédito Inmobiliario",
+                    Categoria = "Vivienda",
                     TasaAnual = 8.50m,
                     TasaSeguroDesgravamenMensual = 0.0400m,
                     Descripcion = "Compra, construcción o remodelación de vivienda.",
@@ -59,9 +70,87 @@ public class CreditDbContext(DbContextOptions<CreditDbContext> options) : DbCont
                     Id = 3,
                     Codigo = "MICROCREDITO",
                     Nombre = "Microcrédito",
+                    Categoria = "Microcrédito",
                     TasaAnual = 22.00m,
                     TasaSeguroDesgravamenMensual = 0.0700m,
                     Descripcion = "Financiamiento para actividades productivas a pequeña escala.",
+                    Activo = true
+                },
+                new TipoCredito
+                {
+                    Id = 4,
+                    Codigo = "PRODUCTIVO_CORPORATIVO",
+                    Nombre = "Productivo Corporativo",
+                    Categoria = "Productivo",
+                    TasaAnual = 6.79m,
+                    TasaSeguroDesgravamenMensual = 0.0300m,
+                    Descripcion = "Empresas con ventas anuales superiores a cinco millones de dólares.",
+                    Activo = true
+                },
+                new TipoCredito
+                {
+                    Id = 5,
+                    Codigo = "PRODUCTIVO_EMPRESARIAL",
+                    Nombre = "Productivo Empresarial",
+                    Categoria = "Productivo",
+                    TasaAnual = 8.62m,
+                    TasaSeguroDesgravamenMensual = 0.0350m,
+                    Descripcion = "Empresas con ventas anuales entre uno y cinco millones de dólares.",
+                    Activo = true
+                },
+                new TipoCredito
+                {
+                    Id = 6,
+                    Codigo = "PRODUCTIVO_PYMES",
+                    Nombre = "Productivo PYMES",
+                    Categoria = "Productivo",
+                    TasaAnual = 9.18m,
+                    TasaSeguroDesgravamenMensual = 0.0450m,
+                    Descripcion = "Pequeñas y medianas empresas con ventas anuales de hasta un millón de dólares.",
+                    Activo = true
+                },
+                new TipoCredito
+                {
+                    Id = 7,
+                    Codigo = "EDUCATIVO",
+                    Nombre = "Crédito Educativo",
+                    Categoria = "Educativo",
+                    TasaAnual = 8.95m,
+                    TasaSeguroDesgravamenMensual = 0.0450m,
+                    Descripcion = "Financiamiento de estudios de grado, posgrado y formación profesional.",
+                    Activo = true
+                },
+                new TipoCredito
+                {
+                    Id = 8,
+                    Codigo = "EDUCATIVO_SOCIAL",
+                    Nombre = "Crédito Educativo Social",
+                    Categoria = "Educativo",
+                    TasaAnual = 5.49m,
+                    TasaSeguroDesgravamenMensual = 0.0400m,
+                    Descripcion = "Estudios para personas en situación de vulnerabilidad, con tasa preferente.",
+                    Activo = true
+                },
+                new TipoCredito
+                {
+                    Id = 9,
+                    Codigo = "VIVIENDA_INTERES_SOCIAL",
+                    Nombre = "Vivienda de Interés Social",
+                    Categoria = "Vivienda",
+                    TasaAnual = 4.99m,
+                    TasaSeguroDesgravamenMensual = 0.0400m,
+                    Descripcion = "Primera vivienda para familias de bajos ingresos, con tope de precio regulado.",
+                    Activo = true
+                },
+                new TipoCredito
+                {
+                    Id = 10,
+                    Codigo = "VIVIENDA_INTERES_PUBLICO",
+                    Nombre = "Vivienda de Interés Público",
+                    Categoria = "Vivienda",
+                    TasaAnual = 4.99m,
+                    TasaSeguroDesgravamenMensual = 0.0400m,
+                    Descripcion = "Primera vivienda dentro de proyectos calificados por el Estado.",
                     Activo = true
                 });
         });

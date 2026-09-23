@@ -15,7 +15,9 @@
 --  de modelo:
 --      cd backend/AuthService   && dotnet ef migrations script --idempotent -o auth.sql
 --      cd backend/CreditService && dotnet ef migrations script --idempotent -o credit.sql
---  y volver a unirlos bajo estas cabeceras.
+--  y volver a unirlos bajo estas cabeceras, quitando la marca BOM que EF Core
+--  escribe al inicio de cada archivo: incrustada a mitad del script, psql la
+--  leería como parte de una sentencia y fallaría.
 --
 --  Los scripts son idempotentes: se pueden ejecutar varias veces sin duplicar
 --  objetos ni datos.
@@ -43,7 +45,7 @@ CREATE DATABASE creditdb;
 
 \connect authdb
 
-﻿CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
     "MigrationId" character varying(150) NOT NULL,
     "ProductVersion" character varying(32) NOT NULL,
     CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
@@ -89,7 +91,7 @@ COMMIT;
 
 \connect creditdb
 
-﻿CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
     "MigrationId" character varying(150) NOT NULL,
     "ProductVersion" character varying(32) NOT NULL,
     CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
@@ -252,6 +254,80 @@ BEGIN
     IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
     INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
     VALUES ('20260921034629_FrecuenciaSeguroIngreso', '10.0.12');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
+    ALTER TABLE tipos_credito ADD "Categoria" character varying(40) NOT NULL DEFAULT '';
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
+    UPDATE tipos_credito SET "Categoria" = 'Consumo'
+    WHERE "Id" = 1;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
+    UPDATE tipos_credito SET "Categoria" = 'Vivienda'
+    WHERE "Id" = 2;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
+    UPDATE tipos_credito SET "Categoria" = 'Microcrédito'
+    WHERE "Id" = 3;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
+    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
+    VALUES (4, TRUE, 'Productivo', 'PRODUCTIVO_CORPORATIVO', 'Empresas con ventas anuales superiores a cinco millones de dólares.', 'Productivo Corporativo', 6.79, 0.03);
+    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
+    VALUES (5, TRUE, 'Productivo', 'PRODUCTIVO_EMPRESARIAL', 'Empresas con ventas anuales entre uno y cinco millones de dólares.', 'Productivo Empresarial', 8.62, 0.035);
+    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
+    VALUES (6, TRUE, 'Productivo', 'PRODUCTIVO_PYMES', 'Pequeñas y medianas empresas con ventas anuales de hasta un millón de dólares.', 'Productivo PYMES', 9.18, 0.045);
+    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
+    VALUES (7, TRUE, 'Educativo', 'EDUCATIVO', 'Financiamiento de estudios de grado, posgrado y formación profesional.', 'Crédito Educativo', 8.95, 0.045);
+    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
+    VALUES (8, TRUE, 'Educativo', 'EDUCATIVO_SOCIAL', 'Estudios para personas en situación de vulnerabilidad, con tasa preferente.', 'Crédito Educativo Social', 5.49, 0.04);
+    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
+    VALUES (9, TRUE, 'Vivienda', 'VIVIENDA_INTERES_SOCIAL', 'Primera vivienda para familias de bajos ingresos, con tope de precio regulado.', 'Vivienda de Interés Social', 4.99, 0.04);
+    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
+    VALUES (10, TRUE, 'Vivienda', 'VIVIENDA_INTERES_PUBLICO', 'Primera vivienda dentro de proyectos calificados por el Estado.', 'Vivienda de Interés Público', 4.99, 0.04);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
+    PERFORM setval(
+        pg_get_serial_sequence('tipos_credito', 'Id'),
+        GREATEST(
+            (SELECT MAX("Id") FROM tipos_credito) + 1,
+            nextval(pg_get_serial_sequence('tipos_credito', 'Id'))),
+        false);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
+    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260923001233_CatalogoAmpliadoSegmentosBCE', '10.0.12');
     END IF;
 END $EF$;
 COMMIT;

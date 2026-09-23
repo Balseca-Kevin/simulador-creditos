@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import type { FrecuenciaPago, SimulacionRequest, TipoCredito } from '../types/credito'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
+import { creditApi } from '../services/api'
+import type { Estimaciones, FrecuenciaPago, SimulacionRequest, TipoCredito } from '../types/credito'
 import {
   FRECUENCIAS,
   frecuenciaCompatible,
@@ -9,13 +11,15 @@ import {
   plazoLegible,
   porcentaje,
 } from '../utils/formato'
+import { ListaDesplegable, type OpcionLista } from './ListaDesplegable'
 
 const MONTO_MINIMO = 100
 const MONTO_MAXIMO = 1_000_000
 const PLAZO_MINIMO = 1
 const PLAZO_MAXIMO = 480
-const MONTOS_SUGERIDOS = [5_000, 10_000, 25_000, 50_000, 100_000]
-const PLAZOS_SUGERIDOS = [12, 24, 36, 60, 120, 240]
+
+/** Espera antes de pedir estimaciones, para no lanzar una llamada por tecla. */
+const RETARDO_ESTIMACIONES = 400
 
 interface Props {
   tipos: TipoCredito[]
@@ -57,53 +61,96 @@ function Paso({
   )
 }
 
-function Atajo({
-  activo,
-  disabled,
-  onClick,
-  children,
-}: {
-  activo: boolean
-  disabled: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`rounded-full border px-3 py-1 text-sm font-medium tabular-nums transition disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo
-          ? 'border-marca-600 bg-marca-600 text-white'
-          : 'border-slate-200 bg-white text-slate-600 hover:border-marca-300 hover:text-marca-700'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function MensajeError({ children }: { children?: string }) {
-  if (!children) return null
-  return (
-    <p role="alert" className="mt-2 text-sm font-medium text-red-600">
-      {children}
-    </p>
-  )
-}
+const aNumero = (texto: string) => Number(texto.replace(/[\s.$]/g, '').replace(',', '.'))
 
 export function FormularioSimulacion({ tipos, simulando, onSimular }: Props) {
+  const { token } = useAuth()
+
   const [tipoId, setTipoId] = useState<number | null>(tipos[0]?.id ?? null)
   const [monto, setMonto] = useState('10000')
   const [plazo, setPlazo] = useState('24')
   const [frecuencia, setFrecuencia] = useState<FrecuenciaPago>('Mensual')
   const [conSeguro, setConSeguro] = useState(true)
   const [errores, setErrores] = useState<Errores>({})
+  const [estimaciones, setEstimaciones] = useState<Estimaciones | null>(null)
 
   const tipoElegido = tipos.find((t) => t.id === tipoId)
+  const montoNumero = aNumero(monto)
   const plazoNumero = Number(plazo)
-  const plazoValido = Number.isInteger(plazoNumero) && plazoNumero >= PLAZO_MINIMO
+  const plazoValido = Number.isInteger(plazoNumero) && plazoNumero >= PLAZO_MINIMO && plazoNumero <= PLAZO_MAXIMO
+  const montoValido = !Number.isNaN(montoNumero) && montoNumero >= MONTO_MINIMO && montoNumero <= MONTO_MAXIMO
+
+  const temporizador = useRef<number | undefined>(undefined)
+
+  /**
+   * Pide al servidor la cuota que daría cada opción. Se calcula allí, con el
+   * mismo motor que la simulación final, para que lo que anticipa la lista no
+   * pueda diferir del resultado real.
+   */
+  const pedirEstimaciones = useCallback(async () => {
+    if (!token || tipoId === null || !montoValido || !plazoValido) return
+
+    try {
+      setEstimaciones(
+        await creditApi.estimaciones(token, {
+          tipoCreditoId: tipoId,
+          monto: montoNumero,
+          plazoMeses: plazoNumero,
+          frecuenciaPago: frecuencia,
+          incluirSeguroDesgravamen: conSeguro,
+        }),
+      )
+    } catch {
+      // Las estimaciones son una ayuda: si fallan, el formulario sigue usable
+      // y las listas se muestran sin la cifra de la derecha.
+      setEstimaciones(null)
+    }
+  }, [token, tipoId, montoNumero, plazoNumero, frecuencia, conSeguro, montoValido, plazoValido])
+
+  useEffect(() => {
+    window.clearTimeout(temporizador.current)
+    temporizador.current = window.setTimeout(() => void pedirEstimaciones(), RETARDO_ESTIMACIONES)
+    return () => window.clearTimeout(temporizador.current)
+  }, [pedirEstimaciones])
+
+  const opcionesTipo: OpcionLista[] = useMemo(() => {
+    const porTipo = estimaciones?.porTipo ?? []
+
+    return tipos.map((t) => {
+      const cuota = porTipo.find((e) => e.tipoCreditoId === t.id)?.cuotaEstimada ?? null
+
+      return {
+        valor: String(t.id),
+        etiqueta: t.nombre,
+        detalle: `${porcentaje(t.tasaAnual)} anual · ${t.descripcion}`,
+        estimacion: cuota !== null ? moneda(cuota) : undefined,
+        grupo: t.categoria,
+      }
+    })
+  }, [tipos, estimaciones])
+
+  const opcionesMonto: OpcionLista[] = useMemo(
+    () =>
+      (estimaciones?.porMonto ?? []).map((e) => ({
+        valor: String(e.monto),
+        etiqueta: monedaEntera(e.monto),
+        estimacion: e.cuotaEstimada !== null ? moneda(e.cuotaEstimada) : undefined,
+      })),
+    [estimaciones],
+  )
+
+  const opcionesPlazo: OpcionLista[] = useMemo(
+    () =>
+      (estimaciones?.porPlazo ?? []).map((e) => ({
+        valor: String(e.plazoMeses),
+        etiqueta: `${e.plazoMeses} meses`,
+        detalle: plazoLegible(e.plazoMeses),
+        estimacion: e.cuotaEstimada !== null ? moneda(e.cuotaEstimada) : undefined,
+        deshabilitada: !e.compatibleConFrecuencia,
+        motivo: !e.compatibleConFrecuencia ? 'No divisible' : undefined,
+      })),
+    [estimaciones],
+  )
 
   /**
    * Si el nuevo plazo no admite la frecuencia elegida (10 meses no se divide en
@@ -123,7 +170,6 @@ export function FormularioSimulacion({ tipos, simulando, onSimular }: Props) {
 
     if (tipoId === null) nuevos.tipo = 'Selecciona un tipo de crédito.'
 
-    const montoNumero = Number(monto.replace(/\s/g, '').replace(',', '.'))
     if (!monto.trim() || Number.isNaN(montoNumero)) {
       nuevos.monto = 'Ingresa un monto válido.'
     } else if (montoNumero < MONTO_MINIMO || montoNumero > MONTO_MAXIMO) {
@@ -160,135 +206,58 @@ export function FormularioSimulacion({ tipos, simulando, onSimular }: Props) {
       noValidate
       className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
-      <Paso numero={1} titulo="¿Qué tipo de crédito necesitas?" ayuda="La tasa de interés depende del tipo que elijas.">
-        <div role="radiogroup" aria-label="Tipo de crédito" className="grid gap-3 md:grid-cols-3">
-          {tipos.map((tipo) => {
-            const seleccionado = tipo.id === tipoId
-
-            return (
-              <label
-                key={tipo.id}
-                className={`relative flex cursor-pointer flex-col rounded-xl border-2 p-4 transition ${
-                  seleccionado
-                    ? 'border-marca-600 bg-marca-50'
-                    : 'border-slate-200 hover:border-marca-300'
-                } ${simulando ? 'pointer-events-none opacity-60' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="tipoCredito"
-                  value={tipo.id}
-                  checked={seleccionado}
-                  onChange={() => setTipoId(tipo.id)}
-                  disabled={simulando}
-                  className="sr-only"
-                />
-
-                <span
-                  aria-hidden="true"
-                  className={`absolute top-3 right-3 flex size-5 items-center justify-center rounded-full border-2 ${
-                    seleccionado ? 'border-marca-600 bg-marca-600' : 'border-slate-300 bg-white'
-                  }`}
-                >
-                  {seleccionado && <span className="size-2 rounded-full bg-white" />}
-                </span>
-
-                <span className="pr-6 text-sm font-semibold text-slate-900">{tipo.nombre}</span>
-                <span className="mt-2 text-xs text-slate-500">Tasa referencial</span>
-                <span className="text-2xl font-bold tabular-nums text-marca-700">
-                  {porcentaje(tipo.tasaAnual)}
-                </span>
-                <span className="mt-2 text-xs leading-snug text-slate-500">{tipo.descripcion}</span>
-              </label>
-            )
-          })}
-        </div>
-        <MensajeError>{errores.tipo}</MensajeError>
+      <Paso
+        numero={1}
+        titulo="¿Qué tipo de crédito necesitas?"
+        ayuda="La tasa de interés depende del tipo que elijas. Escribe para buscar entre los segmentos."
+      >
+        <ListaDesplegable
+          id="tipo-credito"
+          etiqueta="Tipo de crédito"
+          modo="filtro"
+          valor={tipoId !== null ? String(tipoId) : ''}
+          opciones={opcionesTipo}
+          deshabilitado={simulando}
+          error={errores.tipo}
+          placeholder="Busca un tipo de crédito"
+          ayuda={
+            tipoElegido
+              ? `${porcentaje(tipoElegido.tasaAnual)} anual · desgravamen ${porcentaje(tipoElegido.tasaSeguroDesgravamenMensual, 4)} mensual`
+              : undefined
+          }
+          onCambio={(v) => setTipoId(Number(v))}
+        />
       </Paso>
 
-      <Paso numero={2} titulo="¿Cuánto necesitas y en qué plazo?">
+      <Paso
+        numero={2}
+        titulo="¿Cuánto necesitas y en qué plazo?"
+        ayuda="Elige un valor sugerido o escribe el tuyo. La cifra de la derecha es la cuota que resultaría."
+      >
         <div className="grid gap-6 lg:grid-cols-2">
-          <div>
-            <label htmlFor="monto" className="text-sm font-medium text-slate-700">
-              Monto del préstamo
-            </label>
-            <div className="relative mt-1.5">
-              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-lg font-semibold text-slate-400">
-                $
-              </span>
-              <input
-                id="monto"
-                inputMode="decimal"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
-                disabled={simulando}
-                aria-invalid={Boolean(errores.monto)}
-                aria-describedby="monto-rango"
-                className={`w-full rounded-xl border-2 py-3 pr-4 pl-9 text-lg font-semibold tabular-nums text-slate-900 outline-none transition focus:ring-4 disabled:bg-slate-50 ${
-                  errores.monto
-                    ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-                    : 'border-slate-200 focus:border-marca-500 focus:ring-marca-100'
-                }`}
-              />
-            </div>
-            <p id="monto-rango" className="mt-1.5 text-xs text-slate-500">
-              Desde {monedaEntera(MONTO_MINIMO)} hasta {monedaEntera(MONTO_MAXIMO)}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {MONTOS_SUGERIDOS.map((valor) => (
-                <Atajo
-                  key={valor}
-                  activo={Number(monto) === valor}
-                  disabled={simulando}
-                  onClick={() => setMonto(String(valor))}
-                >
-                  {monedaEntera(valor)}
-                </Atajo>
-              ))}
-            </div>
-            <MensajeError>{errores.monto}</MensajeError>
-          </div>
+          <ListaDesplegable
+            id="monto"
+            etiqueta="Monto del préstamo"
+            valor={monto}
+            opciones={opcionesMonto}
+            prefijo="$"
+            deshabilitado={simulando}
+            error={errores.monto}
+            ayuda={`Desde ${monedaEntera(MONTO_MINIMO)} hasta ${monedaEntera(MONTO_MAXIMO)}`}
+            onCambio={setMonto}
+          />
 
-          <div>
-            <label htmlFor="plazo" className="text-sm font-medium text-slate-700">
-              Plazo en meses
-            </label>
-            <div className="relative mt-1.5">
-              <input
-                id="plazo"
-                inputMode="numeric"
-                value={plazo}
-                onChange={(e) => cambiarPlazo(e.target.value)}
-                disabled={simulando}
-                aria-invalid={Boolean(errores.plazo)}
-                aria-describedby="plazo-legible"
-                className={`w-full rounded-xl border-2 py-3 pr-24 pl-4 text-lg font-semibold tabular-nums text-slate-900 outline-none transition focus:ring-4 disabled:bg-slate-50 ${
-                  errores.plazo
-                    ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-                    : 'border-slate-200 focus:border-marca-500 focus:ring-marca-100'
-                }`}
-              />
-              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-slate-400">
-                meses
-              </span>
-            </div>
-            <p id="plazo-legible" className="mt-1.5 text-xs text-slate-500">
-              {plazoValido ? `Equivale a ${plazoLegible(plazoNumero)}` : 'Hasta 480 meses (40 años)'}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {PLAZOS_SUGERIDOS.map((meses) => (
-                <Atajo
-                  key={meses}
-                  activo={plazoNumero === meses}
-                  disabled={simulando}
-                  onClick={() => cambiarPlazo(String(meses))}
-                >
-                  {plazoLegible(meses)}
-                </Atajo>
-              ))}
-            </div>
-            <MensajeError>{errores.plazo}</MensajeError>
-          </div>
+          <ListaDesplegable
+            id="plazo"
+            etiqueta="Plazo"
+            valor={plazo}
+            opciones={opcionesPlazo}
+            sufijo="meses"
+            deshabilitado={simulando}
+            error={errores.plazo}
+            ayuda={plazoValido ? `Equivale a ${plazoLegible(plazoNumero)}` : 'Hasta 480 meses (40 años)'}
+            onCambio={cambiarPlazo}
+          />
         </div>
       </Paso>
 
@@ -376,10 +345,6 @@ export function FormularioSimulacion({ tipos, simulando, onSimular }: Props) {
           {simulando ? 'Calculando…' : 'Calcular cuota'}
         </button>
       </div>
-
-      <p className="sr-only" aria-live="polite">
-        {simulando ? `Calculando la simulación de ${moneda(Number(monto) || 0)}` : ''}
-      </p>
     </form>
   )
 }

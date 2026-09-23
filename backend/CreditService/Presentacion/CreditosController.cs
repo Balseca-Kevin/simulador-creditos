@@ -43,6 +43,21 @@ public class CreditosController(IServicioSimulacion simulador) : ControllerBase
         return resultado.Exito ? Ok(resultado.Valor) : Traducir(resultado);
     }
 
+    /// <summary>
+    /// Cuota que resultaría con cada opción de los desplegables, para anticipar
+    /// el efecto de cada elección antes de calcular la simulación completa.
+    /// </summary>
+    [HttpPost("estimaciones")]
+    [ProducesResponseType(typeof(EstimacionesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<EstimacionesResponse>> Estimaciones(EstimacionesRequest solicitud)
+    {
+        var resultado = await simulador.Estimaciones(solicitud);
+
+        return resultado.Exito ? Ok(resultado.Valor) : Traducir(resultado);
+    }
+
     /// <summary>Historial de simulaciones del usuario autenticado, de la más reciente a la más antigua.</summary>
     [HttpGet("historial")]
     [ProducesResponseType(typeof(IEnumerable<SimulacionHistorialResponse>), StatusCodes.Status200OK)]
