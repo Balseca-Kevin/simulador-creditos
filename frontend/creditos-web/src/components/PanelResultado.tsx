@@ -6,8 +6,9 @@ export type Metodo = 'Frances' | 'Aleman'
 interface Props {
   simulacion: Simulacion | null
   metodo: Metodo
+  abriendoReporte: boolean
   onCambiarMetodo: (metodo: Metodo) => void
-  onVerTabla: () => void
+  onVerReporte: () => void
 }
 
 function Fila({ etiqueta, valor, fuerte = false }: { etiqueta: string; valor: string; fuerte?: boolean }) {
@@ -43,7 +44,7 @@ function Vacio() {
  * Resumen que acompaña al formulario. En escritorio queda fijo a la derecha
  * mientras se ajustan los datos, como en los simuladores bancarios de referencia.
  */
-export function PanelResultado({ simulacion, metodo, onCambiarMetodo, onVerTabla }: Props) {
+export function PanelResultado({ simulacion, metodo, abriendoReporte, onCambiarMetodo, onVerReporte }: Props) {
   return (
     <aside
       aria-live="polite"
@@ -55,15 +56,16 @@ export function PanelResultado({ simulacion, metodo, onCambiarMetodo, onVerTabla
         <Contenido
           simulacion={simulacion}
           metodo={metodo}
+          abriendoReporte={abriendoReporte}
           onCambiarMetodo={onCambiarMetodo}
-          onVerTabla={onVerTabla}
+          onVerReporte={onVerReporte}
         />
       )}
     </aside>
   )
 }
 
-function Contenido({ simulacion, metodo, onCambiarMetodo, onVerTabla }: Props & { simulacion: Simulacion }) {
+function Contenido({ simulacion, metodo, abriendoReporte, onCambiarMetodo, onVerReporte }: Props & { simulacion: Simulacion }) {
   const tabla = metodo === 'Frances' ? simulacion.francesa : simulacion.alemana
   const frecuencia = opcionFrecuencia(simulacion.frecuenciaPago)
   const esUnica = simulacion.numeroCuotas === 1
@@ -143,11 +145,19 @@ function Contenido({ simulacion, metodo, onCambiarMetodo, onVerTabla }: Props & 
 
       <div className="px-6 pb-6">
         <button
-          onClick={onVerTabla}
-          className="w-full rounded-xl border-2 border-marca-600 px-4 py-2.5 text-sm font-semibold text-marca-700 transition hover:bg-marca-50 focus:ring-4 focus:ring-marca-100 focus:outline-none"
+          onClick={onVerReporte}
+          disabled={abriendoReporte}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-marca-600 px-4 py-2.5 text-sm font-semibold text-marca-700 transition hover:bg-marca-50 focus:ring-4 focus:ring-marca-100 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Ver tabla de amortización
+          {abriendoReporte && (
+            <span className="size-4 animate-spin rounded-full border-2 border-marca-200 border-t-marca-600" />
+          )}
+          {abriendoReporte ? 'Generando reporte…' : 'Ver tabla de amortización'}
         </button>
+
+        <p className="mt-2 text-center text-xs text-slate-400">
+          Se abre en una pestaña nueva, lista para imprimir o descargar.
+        </p>
       </div>
     </>
   )

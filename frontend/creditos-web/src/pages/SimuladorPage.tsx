@@ -5,7 +5,7 @@ import { FormularioSimulacion } from '../components/FormularioSimulacion'
 import { HistorialSimulaciones } from '../components/HistorialSimulaciones'
 import { type Metodo, PanelResultado } from '../components/PanelResultado'
 import { PreguntasFrecuentes } from '../components/PreguntasFrecuentes'
-import { type Pestana, SeccionTablas } from '../components/SeccionTablas'
+import { SeccionComparativa } from '../components/SeccionComparativa'
 import { useAuth } from '../hooks/useAuth'
 import { creditApi } from '../services/api'
 import type { Simulacion, SimulacionHistorial, SimulacionRequest, TipoCredito } from '../types/credito'
@@ -23,17 +23,16 @@ export function SimuladorPage() {
   const [historial, setHistorial] = useState<SimulacionHistorial[]>([])
   const [simulacion, setSimulacion] = useState<Simulacion | null>(null)
 
-  // El método del panel y la pestaña de la tabla van sincronizados: elegir
-  // "alemán" en uno lo muestra también en el otro. "Comparar" solo existe abajo.
+  /** Método cuyas cifras muestra el panel de resultado. */
   const [metodo, setMetodo] = useState<Metodo>('Frances')
-  const [pestana, setPestana] = useState<Pestana>('Frances')
 
   const [cargandoCatalogo, setCargandoCatalogo] = useState(true)
   const [simulando, setSimulando] = useState(false)
+  const [abriendoReporte, setAbriendoReporte] = useState(false)
   const [error, setError] = useState('')
 
   const panelRef = useRef<HTMLDivElement>(null)
-  const tablasRef = useRef<HTMLElement>(null)
+  const comparativaRef = useRef<HTMLElement>(null)
 
   const cargarHistorial = useCallback(async () => {
     if (!token) return
@@ -70,14 +69,36 @@ export function SimuladorPage() {
     }
   }, [token, cargarHistorial])
 
-  function cambiarMetodo(nuevo: Metodo) {
-    setMetodo(nuevo)
-    setPestana(nuevo)
-  }
+  /**
+   * Abre el reporte en una pestaña nueva.
+   *
+   * La pestaña se abre antes de pedir el enlace, aunque todavía no se sepa la
+   * dirección: los navegadores solo permiten abrir ventanas como consecuencia
+   * directa de un clic, y si se esperara a que respondiera el servidor el
+   * bloqueador de elementos emergentes la cancelaría.
+   */
+  async function abrirReporte() {
+    if (!token || !simulacion) return
 
-  function cambiarPestana(nueva: Pestana) {
-    setPestana(nueva)
-    if (nueva !== 'Comparar') setMetodo(nueva)
+    const pestana = window.open('', '_blank')
+    setAbriendoReporte(true)
+    setError('')
+
+    try {
+      const { url } = await creditApi.enlaceReporte(token, simulacion.id)
+
+      if (pestana) {
+        pestana.location.href = url
+      } else {
+        // El navegador bloqueó la pestaña: se navega en la actual como respaldo.
+        window.location.href = url
+      }
+    } catch (e) {
+      pestana?.close()
+      setError(e instanceof Error ? e.message : 'No se pudo generar el reporte.')
+    } finally {
+      setAbriendoReporte(false)
+    }
   }
 
   async function simular(datos: SimulacionRequest) {
@@ -165,18 +186,19 @@ export function SimuladorPage() {
             <PanelResultado
               simulacion={simulacion}
               metodo={metodo}
-              onCambiarMetodo={cambiarMetodo}
-              onVerTabla={() => tablasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              abriendoReporte={abriendoReporte}
+              onCambiarMetodo={setMetodo}
+              onVerReporte={abrirReporte}
             />
           </div>
         </div>
 
         {simulacion && (
-          <SeccionTablas
-            ref={tablasRef}
+          <SeccionComparativa
+            ref={comparativaRef}
             simulacion={simulacion}
-            pestana={pestana}
-            onCambiarPestana={cambiarPestana}
+            abriendoReporte={abriendoReporte}
+            onAbrirReporte={abrirReporte}
           />
         )}
 

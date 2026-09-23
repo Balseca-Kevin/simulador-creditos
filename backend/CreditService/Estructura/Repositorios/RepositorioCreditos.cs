@@ -44,4 +44,10 @@ public class RepositorioCreditos(CreditDbContext contexto) : IRepositorioCredito
             .OrderByDescending(s => s.FechaSimulacion)
             .Take(tope)
             .ToListAsync();
+
+    public Task<Simulacion?> BuscarSimulacion(Guid id, Guid usuarioId) =>
+        contexto.Simulaciones
+            .AsNoTracking()
+            .Include(s => s.TipoCredito)
+            .SingleOrDefaultAsync(s => s.Id == id && s.UsuarioId == usuarioId);
 }

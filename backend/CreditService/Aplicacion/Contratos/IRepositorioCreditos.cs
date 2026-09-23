@@ -17,4 +17,10 @@ public interface IRepositorioCreditos
 
     /// <summary>Simulaciones del usuario, de la más reciente a la más antigua, con su tipo de crédito cargado.</summary>
     Task<IReadOnlyList<Simulacion>> UltimasSimulaciones(Guid usuarioId, int tope);
+
+    /// <summary>
+    /// Busca una simulación del usuario indicado. Filtrar también por usuario
+    /// evita que alguien abra el reporte de una simulación ajena conociendo su id.
+    /// </summary>
+    Task<Simulacion?> BuscarSimulacion(Guid id, Guid usuarioId);
 }

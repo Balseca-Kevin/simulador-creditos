@@ -84,6 +84,10 @@ Tareas técnicas:
 | `POST` | `/api/creditos/simular` | Recibe tipo, monto y plazo; devuelve tablas francesa y alemana |
 | `GET` | `/api/creditos/historial` | Últimas 50 simulaciones del usuario autenticado |
 
+Ampliado en iteraciones posteriores con `POST /api/creditos/estimaciones`,
+`POST /api/creditos/simulaciones/{id}/enlace-reporte` y
+`GET /api/creditos/reportes/{token}`.
+
 Todos exigen `Authorization: Bearer <JWT>` emitido por la Auth API.
 
 ### Pruebas unitarias: 42 en verde
@@ -392,6 +396,74 @@ con la `primeraCuotaTotal` que devuelve la simulación real.
 
 ---
 
+## Iteración de reporte en PDF
+
+**Origen:** el cliente propuso que, en lugar de desplegar la tabla de
+amortización al pie de la página, el botón abriera un reporte en el visor del
+navegador, con sus controles de paginación, impresión y descarga.
+
+La idea aprovecha algo que ya existe: el visor de PDF del navegador aporta esos
+controles sin que haya que construirlos, y coincide con lo que ofrecen los
+simuladores bancarios ("descarga tu tabla de amortización").
+
+### Dónde se genera
+
+En la Credit API, con QuestPDF bajo su licencia Community. Las cifras ya se
+calculan ahí, así que el papel no puede decir algo distinto a la pantalla: el
+reporte y la simulación comparten el método que arma la respuesta.
+
+Como la simulación se guarda con sus parámetros y el cálculo es determinista,
+el reporte se **recalcula** al pedirlo. El de una simulación de hace un mes sale
+idéntico al que se vio entonces.
+
+### El obstáculo: abrir una pestaña sin cabeceras
+
+Los endpoints de crédito exigen el JWT en una cabecera, pero el navegador, al
+abrir una pestaña, navega "en limpio" y no puede enviarla: el servidor
+respondería 401.
+
+Poner el token de sesión en la URL lo habría resuelto, pero las URL quedan en el
+historial del navegador y en los registros del servidor. En su lugar se
+añadieron dos endpoints:
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/creditos/simulaciones/{id}/enlace-reporte` | Con sesión: emite un enlace de un solo uso, válido 2 minutos |
+| `GET` | `/api/creditos/reportes/{token}` | Sin sesión: canjea el enlace y devuelve el PDF |
+
+El enlace queda ligado a una simulación y a su dueño, así que no da acceso a
+nada más. Se retira al canjearse: un segundo intento responde **410 Gone**, y no
+401, porque el enlace existió y ya no sirve; un 401 haría que el navegador
+pidiera credenciales, que no es lo que corresponde.
+
+En el frontend, la pestaña se abre **antes** de pedir el enlace, aunque todavía
+no se sepa la dirección: los navegadores solo permiten abrir ventanas como
+consecuencia directa de un clic, y esperar la respuesta del servidor haría que
+el bloqueador de elementos emergentes la cancelara.
+
+### Qué cambió en la página
+
+La sección de pestañas con las dos tablas se sustituyó por `SeccionComparativa`,
+que conserva la comparación de los dos métodos —lo que responde de un vistazo
+qué conviene— y lleva el detalle completo al reporte. Se eliminaron
+`SeccionTablas` y `TablaAmortizacion`, que quedaron sin uso.
+
+### Defectos detectados al revisar el PDF generado
+
+Abrir el documento y mirarlo, en lugar de dar por bueno que se generó:
+
+1. En la fila de totales, la palabra "TOTAL" se partía en dos líneas porque la
+   primera columna era demasiado estrecha.
+2. En el comparativo se resaltaban en verde "Primera cuota" y "Última cuota". El
+   verde significa "mejor", pero en esas filas el valor menor no lo es: una
+   cuota baja suele venir acompañada de más intereses totales. La página web sí
+   distinguía esos casos; el PDF no.
+
+Verificado además con un crédito a 240 meses: 15 páginas, con el encabezado de
+columnas repetido en cada una y numeración continua.
+
+---
+
 ## Registro de evidencias
 
 Se completa al cierre de cada sprint.
@@ -402,5 +474,6 @@ Se completa al cierre de cada sprint.
 | 2 | 18/09/2026 | Credit API con regla tipo → tasa, tablas francesa y alemana exactas al centavo, historial por usuario y endpoints protegidos con el JWT de la Auth API. 42 pruebas unitarias y 13 de aceptación en verde. | Se corrigió un defecto de redondeo acumulativo en el método francés, detectado por las propias pruebas del sprint. Se añadió una prueba de regresión y se documentó el caso. Se unificó la versión de EF Core (10.0.12) para eliminar un conflicto de dependencias. |
 | 3 | 20/09/2026 | Plataforma completa: formulario de simulación, tablas francesa y alemana con totales, resumen comparativo, historial e interfaz responsive. 8 pruebas de aceptación en verde. | Se añadió la vista de historial, que no figuraba en el plan original: la Credit API ya persistía las simulaciones y sin pantalla esa funcionalidad quedaba invisible. Se corrigieron tres defectos heredados del Sprint 1 detectados por el linter. |
 | Rediseño | 21/09/2026 | Interfaz reestructurada según el simulador de referencia, con frecuencia de pago, seguro de desgravamen e ingreso mínimo requerido. 66 pruebas unitarias en verde. | El cliente pidió replicar un referente comercial; se adoptó su estructura y se descartó su identidad de marca. Se evitaron dos defectos antes de que llegaran a producción: una migración que habría roto el historial y mensajes de error que exponían nombres internos. |
-| Catálogo | 23/09/2026 | Catálogo ampliado de 3 a 10 tipos con las tasas del BCE de agosto 2026, agrupados en 5 categorías. Formulario con listas desplegables que permiten escribir y muestran la cuota estimada de cada opción. | La estimación se resolvió en el servidor y no en el navegador, para no duplicar el motor de amortización en dos lenguajes. Se verificó que coincide al centavo con la simulación real en los 10 tipos. Se descartaron los segmentos vehicular y comercial por no existir en la tabla del BCE. |
 | Reestructuración | 22/09/2026 | Proyecto reorganizado según la estructura de referencia de la asignatura: capas Dominio, Aplicacion, Estructura, Presentacion y Migrations en cada servicio, más ApiGateway, `database/database.sql`, `frontend/creditos-web/` e `iniciar.bat`. 66 pruebas en verde tras el cambio. | Se conservaron los nombres Auth y Credit para no contradecir la especificación propia del proyecto, y se mantuvo el proyecto de pruebas, que la estructura de referencia no contempla. |
+| Catálogo | 23/09/2026 | Catálogo ampliado de 3 a 10 tipos con las tasas del BCE de agosto 2026, agrupados en 5 categorías. Formulario con listas desplegables que permiten escribir y muestran la cuota estimada de cada opción. | La estimación se resolvió en el servidor y no en el navegador, para no duplicar el motor de amortización en dos lenguajes. Se verificó que coincide al centavo con la simulación real en los 10 tipos. Se descartaron los segmentos vehicular y comercial por no existir en la tabla del BCE. |
+| Reporte PDF | 23/09/2026 | La tabla de amortización se entrega como reporte PDF de varias páginas, que se abre en el visor del navegador con paginación, impresión y descarga. La página conserva solo la comparación de los dos métodos. | El PDF se genera en el servidor reutilizando la respuesta de la simulación, para que no pueda mostrar cifras distintas a la pantalla. La pestaña se abre con un enlace de un solo uso en lugar de poner el token de sesión en la URL. Al revisar el documento generado se corrigieron dos defectos de presentación. |

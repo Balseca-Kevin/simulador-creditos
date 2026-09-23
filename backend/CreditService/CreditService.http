@@ -82,3 +82,15 @@ Content-Type: application/json
 
 ### 8. Comprobar el servicio directamente, sin pasar por el gateway
 GET {{directo}}/health
+
+### 9. Reporte PDF: emitir el enlace temporal de una simulacion
+# Reemplaza el identificador por el de una simulación propia (lo devuelve /simular).
+# @name enlace
+POST {{base}}/api/creditos/simulaciones/00000000-0000-0000-0000-000000000000/enlace-reporte
+Authorization: Bearer {{login.response.body.token}}
+
+### 10. Abrir el reporte con ese enlace (no lleva cabecera, como haria el navegador)
+GET {{gateway}}{{enlace.response.body.url}}
+
+### 11. Repetir el paso anterior: el enlace es de un solo uso, debe dar 410
+GET {{gateway}}{{enlace.response.body.url}}

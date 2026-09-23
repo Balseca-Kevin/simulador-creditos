@@ -4,6 +4,7 @@ using CreditService.Aplicacion.Contratos;
 using CreditService.Aplicacion.Servicios;
 using CreditService.Estructura;
 using CreditService.Estructura.Repositorios;
+using CreditService.Estructura.Reportes;
 using CreditService.Presentacion;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,13 @@ builder.Services.AddScoped<IMotorAmortizacion, MotorAmortizacion>();
 // Estructura: es aqui, en el arranque, donde se conectan las dos capas.
 builder.Services.AddScoped<IRepositorioCreditos, RepositorioCreditos>();
 builder.Services.AddScoped<IServicioSimulacion, ServicioSimulacion>();
+
+// El reporte se maqueta con QuestPDF bajo su licencia Community, gratuita para
+// proyectos individuales y organizaciones pequenas.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IEnlacesReporte, EnlacesReporteEnMemoria>();
+builder.Services.AddSingleton<IGeneradorReportePdf, GeneradorReportePdf>();
 
 // ---------- Validación de los tokens emitidos por la Auth API ----------
 var jwt = builder.Configuration.GetSection(JwtOptions.SeccionConfiguracion).Get<JwtOptions>()

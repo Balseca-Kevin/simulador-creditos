@@ -5,6 +5,7 @@ import type {
   Usuario,
 } from '../types/auth'
 import type {
+  EnlaceReporte,
   Estimaciones,
   EstimacionesRequest,
   Simulacion,
@@ -125,4 +126,19 @@ export const creditApi = {
       headers: conToken(token),
       body: JSON.stringify(datos),
     }),
+
+  /**
+   * Pide un enlace temporal para abrir el reporte en una pestaña nueva.
+   * Hace falta porque, al abrir una pestaña, el navegador no puede enviar la
+   * cabecera de autorización: el enlace, de un solo uso, la sustituye.
+   */
+  enlaceReporte: async (token: string, simulacionId: string) => {
+    const enlace = await pedir<EnlaceReporte>(
+      API,
+      `/api/creditos/simulaciones/${simulacionId}/enlace-reporte`,
+      { method: 'POST', headers: conToken(token) },
+    )
+
+    return { ...enlace, url: `${API}${enlace.url}` }
+  },
 }

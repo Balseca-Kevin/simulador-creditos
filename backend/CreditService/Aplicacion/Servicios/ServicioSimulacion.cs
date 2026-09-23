@@ -10,6 +10,8 @@ public interface IServicioSimulacion
     Task<Resultado<SimulacionResponse>> Simular(Guid usuarioId, SimulacionRequest solicitud);
     Task<IReadOnlyList<SimulacionHistorialResponse>> Historial(Guid usuarioId);
     Task<Resultado<EstimacionesResponse>> Estimaciones(EstimacionesRequest solicitud);
+    Task<Resultado<EnlaceReporteResponse>> EmitirEnlaceReporte(Guid usuarioId, Guid simulacionId, string? solicitante);
+    Task<Resultado<ReporteGenerado>> GenerarReporte(string token);
 }
 
 /// <summary>
@@ -18,8 +20,11 @@ public interface IServicioSimulacion
 /// tipo de crédito determina la tasa— y la orquestación entre el motor de
 /// amortización y la persistencia.
 /// </summary>
-public class ServicioSimulacion(IRepositorioCreditos repositorio, IMotorAmortizacion motor)
-    : IServicioSimulacion
+public class ServicioSimulacion(
+    IRepositorioCreditos repositorio,
+    IMotorAmortizacion motor,
+    IGeneradorReportePdf generador,
+    IEnlacesReporte enlaces) : IServicioSimulacion
 {
     private const int TopeHistorial = 50;
 
@@ -82,17 +87,41 @@ public class ServicioSimulacion(IRepositorioCreditos repositorio, IMotorAmortiza
 
         await repositorio.GuardarSimulacion(simulacion);
 
-        return Resultado<SimulacionResponse>.Ok(new SimulacionResponse
+        return Resultado<SimulacionResponse>.Ok(
+            ConstruirRespuesta(simulacion.Id, simulacion.FechaSimulacion, tipo, solicitud.Monto,
+                solicitud.PlazoMeses, solicitud.FrecuenciaPago, solicitud.IncluirSeguroDesgravamen,
+                francesa, alemana));
+    }
+
+    /// <summary>
+    /// Arma la respuesta a partir de las tablas ya calculadas. La comparten la
+    /// simulación y el reporte, para que el PDF no pueda mostrar una cifra
+    /// distinta a la de la pantalla.
+    /// </summary>
+    private static SimulacionResponse ConstruirRespuesta(
+        Guid id,
+        DateTime fecha,
+        TipoCredito tipo,
+        decimal monto,
+        int plazoMeses,
+        FrecuenciaPago frecuencia,
+        bool incluyeSeguro,
+        TablaAmortizacion francesa,
+        TablaAmortizacion alemana)
+    {
+        var mesesPorPeriodo = frecuencia.MesesPorPeriodo(plazoMeses);
+
+        return new SimulacionResponse
         {
-            Id = simulacion.Id,
-            FechaSimulacion = simulacion.FechaSimulacion,
+            Id = id,
+            FechaSimulacion = fecha,
             TipoCredito = ProyectarTipo(tipo),
-            Monto = solicitud.Monto,
-            PlazoMeses = solicitud.PlazoMeses,
-            FrecuenciaPago = solicitud.FrecuenciaPago,
+            Monto = monto,
+            PlazoMeses = plazoMeses,
+            FrecuenciaPago = frecuencia,
             NumeroCuotas = francesa.Cuotas.Count,
             MesesPorPeriodo = mesesPorPeriodo,
-            IncluyeSeguroDesgravamen = solicitud.IncluirSeguroDesgravamen,
+            IncluyeSeguroDesgravamen = incluyeSeguro,
             TasaAnualAplicada = tipo.TasaAnual,
             TasaPeriodicaAplicada = Math.Round(MotorAmortizacion.TasaPeriodica(tipo.TasaAnual, mesesPorPeriodo), 8),
             RelacionCuotaIngreso = MotorAmortizacion.RelacionCuotaIngreso,
@@ -103,7 +132,7 @@ public class ServicioSimulacion(IRepositorioCreditos repositorio, IMotorAmortiza
                 MetodoMasEconomico = alemana.TotalInteres <= francesa.TotalInteres ? "Aleman" : "Frances",
                 DiferenciaTotalInteres = Math.Abs(francesa.TotalInteres - alemana.TotalInteres)
             }
-        });
+        };
     }
 
     public async Task<IReadOnlyList<SimulacionHistorialResponse>> Historial(Guid usuarioId)
@@ -208,6 +237,101 @@ public class ServicioSimulacion(IRepositorioCreditos repositorio, IMotorAmortiza
             PorPlazo = porPlazo,
             Metodo = "Frances"
         });
+    }
+
+    /// <summary>
+    /// Emite un enlace temporal para abrir el reporte en una pestaña nueva.
+    /// Aquí se comprueba que la simulación exista y sea de quien la pide; el
+    /// enlace queda ligado a ella, así que al canjearlo ya no hace falta
+    /// volver a validar la sesión.
+    /// </summary>
+    public async Task<Resultado<EnlaceReporteResponse>> EmitirEnlaceReporte(
+        Guid usuarioId,
+        Guid simulacionId,
+        string? solicitante)
+    {
+        var simulacion = await repositorio.BuscarSimulacion(simulacionId, usuarioId);
+
+        if (simulacion is null)
+        {
+            return Resultado<EnlaceReporteResponse>.Fallo(
+                MotivoFallo.SolicitudInvalida,
+                "La simulación no existe o no pertenece a tu cuenta.");
+        }
+
+        var (token, expiraEn) = enlaces.Emitir(new VigenciaEnlace(simulacionId, usuarioId, solicitante));
+
+        return Resultado<EnlaceReporteResponse>.Ok(new EnlaceReporteResponse
+        {
+            Url = $"/api/creditos/reportes/{token}",
+            ExpiraEn = expiraEn
+        });
+    }
+
+    /// <summary>
+    /// Canjea el enlace y arma el PDF. Las tablas se recalculan a partir de los
+    /// parámetros guardados: el cálculo es determinista, así que el reporte de
+    /// una simulación de hace un mes sale idéntico al que se vio entonces.
+    /// </summary>
+    public async Task<Resultado<ReporteGenerado>> GenerarReporte(string token)
+    {
+        if (!enlaces.TryCanjear(token, out var vigencia))
+        {
+            return Resultado<ReporteGenerado>.Fallo(
+                MotivoFallo.NoAutorizado,
+                "El enlace del reporte caducó o ya se usó. Vuelve al simulador y ábrelo de nuevo.");
+        }
+
+        var simulacion = await repositorio.BuscarSimulacion(vigencia.SimulacionId, vigencia.UsuarioId);
+
+        if (simulacion?.TipoCredito is null)
+        {
+            return Resultado<ReporteGenerado>.Fallo(
+                MotivoFallo.SolicitudInvalida,
+                "La simulación del reporte ya no está disponible.");
+        }
+
+        var parametros = new ParametrosCredito(
+            Monto: simulacion.Monto,
+            TasaAnual: simulacion.TasaAnualAplicada,
+            PlazoMeses: simulacion.PlazoMeses,
+            Frecuencia: simulacion.FrecuenciaPago,
+            TasaSeguroMensual: simulacion.IncluyeSeguroDesgravamen
+                ? simulacion.TipoCredito.TasaSeguroDesgravamenMensual
+                : 0m);
+
+        var respuesta = ConstruirRespuesta(
+            simulacion.Id,
+            simulacion.FechaSimulacion,
+            simulacion.TipoCredito,
+            simulacion.Monto,
+            simulacion.PlazoMeses,
+            simulacion.FrecuenciaPago,
+            simulacion.IncluyeSeguroDesgravamen,
+            motor.CalcularFrances(parametros),
+            motor.CalcularAleman(parametros));
+
+        return Resultado<ReporteGenerado>.Ok(new ReporteGenerado
+        {
+            Contenido = generador.Generar(respuesta, vigencia.Solicitante),
+            NombreArchivo = NombreArchivo(respuesta)
+        });
+    }
+
+    /// <summary>
+    /// Nombre con el que el navegador muestra y descarga el documento. Se
+    /// limpian los caracteres que no sobreviven a un nombre de archivo.
+    /// </summary>
+    private static string NombreArchivo(SimulacionResponse s)
+    {
+        var tipo = new string(s.TipoCredito.Nombre
+            .Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => char.IsLetterOrDigit(c) || c == ' ')
+            .ToArray())
+            .Trim()
+            .Replace(' ', '-');
+
+        return $"Simulacion-{tipo}-{s.Monto:0}-{s.PlazoMeses}m.pdf";
     }
 
     private static TipoCreditoResponse ProyectarTipo(TipoCredito tipo) => new()

@@ -111,6 +111,18 @@ tasa del período es la anual repartida según los meses que cubre cada cuota
 Opcional. Se cobra en cada cuota sobre el saldo adeudado al inicio del período,
 por lo que disminuye a medida que se amortiza el crédito.
 
+### Reporte en PDF
+
+Cada simulación puede abrirse como un reporte de varias páginas: portada con
+los datos del crédito y la comparación de los dos métodos, y una tabla completa
+por método. Se genera en la Credit API a partir de la misma respuesta que ve la
+pantalla, de modo que ambas no pueden discrepar, y se abre en el visor del
+navegador, que aporta paginación, impresión y descarga.
+
+Para abrir la pestaña se emite un enlace de un solo uso con dos minutos de
+vigencia: el navegador no puede enviar la cabecera de autorización al navegar, y
+poner el token de sesión en la URL lo dejaría en el historial y en los registros.
+
 ### Ingreso mínimo requerido
 
 La cuota más alta de la tabla, llevada a su equivalente mensual, dividida para

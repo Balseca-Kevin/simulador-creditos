@@ -118,3 +118,9 @@ export interface Estimaciones {
   porPlazo: EstimacionPlazo[]
   metodo: string
 }
+
+export interface EnlaceReporte {
+  /** Ruta relativa al gateway; se le antepone la base del API. */
+  url: string
+  expiraEn: string
+}

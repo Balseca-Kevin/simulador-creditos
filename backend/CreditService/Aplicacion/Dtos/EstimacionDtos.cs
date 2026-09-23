@@ -69,3 +69,17 @@ public record EstimacionesResponse
     /// <summary>Método al que corresponden las cuotas mostradas.</summary>
     public required string Metodo { get; init; }
 }
+
+/// <summary>Enlace temporal para abrir el reporte en una pestaña nueva.</summary>
+public record EnlaceReporteResponse
+{
+    public required string Url { get; init; }
+    public required DateTime ExpiraEn { get; init; }
+}
+
+/// <summary>Documento ya maquetado, listo para enviarse al navegador.</summary>
+public record ReporteGenerado
+{
+    public required byte[] Contenido { get; init; }
+    public required string NombreArchivo { get; init; }
+}
