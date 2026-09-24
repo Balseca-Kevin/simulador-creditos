@@ -17,9 +17,9 @@ const string PoliticaCors = "SpaSimulador";
 // este proyecto: hay que decírselo a EF, que por omisión las busca junto al
 // contexto.
 builder.Services.AddDbContext<AssetDbContext>(opciones =>
-    opciones.UseNpgsql(
+    opciones.UseSqlServer(
         builder.Configuration.GetConnectionString("AssetDb"),
-        npgsql => npgsql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
+        sql => sql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
 
 // ---------- Casos de uso y acceso a datos ----------
 // La interfaz del repositorio vive en Aplicacion y su implementación en

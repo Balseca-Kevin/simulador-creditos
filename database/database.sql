@@ -1,6 +1,7 @@
 -- =============================================================================
 --  Sistema de Simulación de Créditos — esquema completo de base de datos
 --  Universidad Técnica de Ambato
+--  Motor: Microsoft SQL Server
 -- =============================================================================
 --
 --  Cada microservicio es dueño de su propia base (patrón Database per Service):
@@ -9,15 +10,16 @@
 --    · assetdb  -> AssetService  : garantías declaradas y sus categorías
 --
 --  Ejecución:
---      psql -U postgres -h localhost -f database/database.sql
+--      sqlcmd -S <instancia> -E -i database\database.sql
+--  o abriendo el archivo en SQL Server Management Studio y pulsando Ejecutar.
 --
 --  Este archivo NO es la fuente de la verdad: se genera a partir de las
---  migraciones de EF Core, que sí lo son. Para regenerarlo tras un cambio
---  de modelo, en cada servicio:
+--  migraciones de EF Core, que sí lo son. Para regenerarlo tras un cambio de
+--  modelo, en cada servicio:
 --      dotnet ef migrations script --idempotent -o <servicio>.sql
 --  y volver a unirlos bajo estas cabeceras, quitando la marca BOM que EF Core
---  escribe al inicio de cada archivo: incrustada a mitad del script, psql la
---  leería como parte de una sentencia y fallaría.
+--  escribe al inicio de cada archivo: incrustada a mitad del script, el
+--  intérprete la leería como parte de una sentencia y fallaría.
 --
 --  Los scripts son idempotentes: se pueden ejecutar varias veces sin duplicar
 --  objetos ni datos.
@@ -28,415 +30,315 @@
 --  documentación legible del esquema.
 -- =============================================================================
 
-
--- =============================================================================
---  1. Creación de las bases
--- =============================================================================
--- PostgreSQL no admite "CREATE DATABASE IF NOT EXISTS"; si ya existen, estas
--- sentencias fallarán y psql continuará con el resto del archivo.
-
-CREATE DATABASE authdb;
-CREATE DATABASE creditdb;
-CREATE DATABASE assetdb;
+-- Detiene la ejecución ante el primer error. Sin esto, si una base no se
+-- pudiera abrir, el script seguiría adelante y crearía sus tablas en la base
+-- que estuviera activa en ese momento: fallaría en silencio y en el lugar
+-- equivocado. Funciona con sqlcmd y con el modo SQLCMD de SQL Server
+-- Management Studio; si se ejecuta sin él, la comprobación de DB_NAME() que
+-- hay tras cada USE sigue sirviendo de red de seguridad.
+:on error exit
 
 
 -- =============================================================================
---  2. authdb — AuthService
+--  1. authdb
 -- =============================================================================
 
-\connect authdb
+IF DB_ID('authdb') IS NULL
+    CREATE DATABASE [authdb];
+GO
 
-CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
-    "MigrationId" character varying(150) NOT NULL,
-    "ProductVersion" character varying(32) NOT NULL,
-    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
-);
+USE [authdb];
+GO
 
-START TRANSACTION;
+IF DB_NAME() <> 'authdb'
+    THROW 50000, 'No se pudo cambiar a la base authdb. Se detiene el script.', 1;
+GO
 
-DO $EF$
+IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260916054155_CreacionInicial') THEN
-    CREATE TABLE usuarios (
-        "Id" uuid NOT NULL,
-        "NombreCompleto" character varying(150) NOT NULL,
-        "Email" character varying(150) NOT NULL,
-        "PasswordHash" character varying(255) NOT NULL,
-        "FechaRegistro" timestamp with time zone NOT NULL,
-        CONSTRAINT "PK_usuarios" PRIMARY KEY ("Id")
+    CREATE TABLE [__EFMigrationsHistory] (
+        [MigrationId] nvarchar(150) NOT NULL,
+        [ProductVersion] nvarchar(32) NOT NULL,
+        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
     );
-    END IF;
-END $EF$;
+END;
+GO
 
-DO $EF$
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114401_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260916054155_CreacionInicial') THEN
-    CREATE UNIQUE INDEX "IX_usuarios_Email" ON usuarios ("Email");
-    END IF;
-END $EF$;
+    CREATE TABLE [usuarios] (
+        [Id] uniqueidentifier NOT NULL,
+        [NombreCompleto] nvarchar(150) NOT NULL,
+        [Email] nvarchar(150) NOT NULL,
+        [PasswordHash] nvarchar(255) NOT NULL,
+        [FechaRegistro] datetime2 NOT NULL,
+        CONSTRAINT [PK_usuarios] PRIMARY KEY ([Id])
+    );
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114401_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260916054155_CreacionInicial') THEN
-    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-    VALUES ('20260916054155_CreacionInicial', '10.0.12');
-    END IF;
-END $EF$;
+    CREATE UNIQUE INDEX [IX_usuarios_Email] ON [usuarios] ([Email]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114401_CreacionInicial'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260924114401_CreacionInicial', N'10.0.12');
+END;
+
 COMMIT;
-
+GO
 
 
 -- =============================================================================
---  3. creditdb — CreditService
+--  2. creditdb
 -- =============================================================================
 
-\connect creditdb
+IF DB_ID('creditdb') IS NULL
+    CREATE DATABASE [creditdb];
+GO
 
-CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
-    "MigrationId" character varying(150) NOT NULL,
-    "ProductVersion" character varying(32) NOT NULL,
-    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
-);
+USE [creditdb];
+GO
 
-START TRANSACTION;
+IF DB_NAME() <> 'creditdb'
+    THROW 50000, 'No se pudo cambiar a la base creditdb. Se detiene el script.', 1;
+GO
 
-DO $EF$
+IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260918234236_CreacionInicial') THEN
-    CREATE TABLE tipos_credito (
-        "Id" integer GENERATED BY DEFAULT AS IDENTITY,
-        "Codigo" character varying(30) NOT NULL,
-        "Nombre" character varying(100) NOT NULL,
-        "TasaAnual" numeric(5,2) NOT NULL,
-        "Descripcion" character varying(300) NOT NULL,
-        "Activo" boolean NOT NULL,
-        CONSTRAINT "PK_tipos_credito" PRIMARY KEY ("Id")
+    CREATE TABLE [__EFMigrationsHistory] (
+        [MigrationId] nvarchar(150) NOT NULL,
+        [ProductVersion] nvarchar(32) NOT NULL,
+        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
     );
-    END IF;
-END $EF$;
+END;
+GO
 
-DO $EF$
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114413_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260918234236_CreacionInicial') THEN
-    CREATE TABLE simulaciones (
-        "Id" uuid NOT NULL,
-        "UsuarioId" uuid NOT NULL,
-        "TipoCreditoId" integer NOT NULL,
-        "Monto" numeric(18,2) NOT NULL,
-        "PlazoMeses" integer NOT NULL,
-        "TasaAnualAplicada" numeric(5,2) NOT NULL,
-        "CuotaFija" numeric(18,2) NOT NULL,
-        "TotalInteresFrances" numeric(18,2) NOT NULL,
-        "TotalInteresAleman" numeric(18,2) NOT NULL,
-        "FechaSimulacion" timestamp with time zone NOT NULL,
-        CONSTRAINT "PK_simulaciones" PRIMARY KEY ("Id"),
-        CONSTRAINT "FK_simulaciones_tipos_credito_TipoCreditoId" FOREIGN KEY ("TipoCreditoId") REFERENCES tipos_credito ("Id") ON DELETE RESTRICT
+    CREATE TABLE [tipos_credito] (
+        [Id] int NOT NULL IDENTITY,
+        [Codigo] nvarchar(30) NOT NULL,
+        [Nombre] nvarchar(100) NOT NULL,
+        [Categoria] nvarchar(40) NOT NULL,
+        [TasaAnual] decimal(5,2) NOT NULL,
+        [TasaSeguroDesgravamenMensual] decimal(7,4) NOT NULL,
+        [Descripcion] nvarchar(300) NOT NULL,
+        [Activo] bit NOT NULL,
+        CONSTRAINT [PK_tipos_credito] PRIMARY KEY ([Id])
     );
-    END IF;
-END $EF$;
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114413_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260918234236_CreacionInicial') THEN
-    INSERT INTO tipos_credito ("Id", "Activo", "Codigo", "Descripcion", "Nombre", "TasaAnual")
-    VALUES (1, TRUE, 'CONSUMO', 'Adquisición de bienes de consumo o pago de servicios.', 'Crédito de Consumo', 15.5);
-    INSERT INTO tipos_credito ("Id", "Activo", "Codigo", "Descripcion", "Nombre", "TasaAnual")
-    VALUES (2, TRUE, 'INMOBILIARIO', 'Compra, construcción o remodelación de vivienda.', 'Crédito Inmobiliario', 8.5);
-    INSERT INTO tipos_credito ("Id", "Activo", "Codigo", "Descripcion", "Nombre", "TasaAnual")
-    VALUES (3, TRUE, 'MICROCREDITO', 'Financiamiento para actividades productivas a pequeña escala.', 'Microcrédito', 22.0);
-    END IF;
-END $EF$;
+    CREATE TABLE [simulaciones] (
+        [Id] uniqueidentifier NOT NULL,
+        [UsuarioId] uniqueidentifier NOT NULL,
+        [TipoCreditoId] int NOT NULL,
+        [Monto] decimal(18,2) NOT NULL,
+        [PlazoMeses] int NOT NULL,
+        [FrecuenciaPago] nvarchar(20) NOT NULL,
+        [IncluyeSeguroDesgravamen] bit NOT NULL,
+        [TasaAnualAplicada] decimal(5,2) NOT NULL,
+        [CuotaFija] decimal(18,2) NOT NULL,
+        [TotalInteresFrances] decimal(18,2) NOT NULL,
+        [TotalInteresAleman] decimal(18,2) NOT NULL,
+        [IngresoMinimoRequerido] decimal(18,2) NOT NULL,
+        [FechaSimulacion] datetime2 NOT NULL,
+        CONSTRAINT [PK_simulaciones] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_simulaciones_tipos_credito_TipoCreditoId] FOREIGN KEY ([TipoCreditoId]) REFERENCES [tipos_credito] ([Id]) ON DELETE NO ACTION
+    );
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114413_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260918234236_CreacionInicial') THEN
-    CREATE INDEX "IX_simulaciones_TipoCreditoId" ON simulaciones ("TipoCreditoId");
-    END IF;
-END $EF$;
+    IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Activo', N'Categoria', N'Codigo', N'Descripcion', N'Nombre', N'TasaAnual', N'TasaSeguroDesgravamenMensual') AND [object_id] = OBJECT_ID(N'[tipos_credito]'))
+        SET IDENTITY_INSERT [tipos_credito] ON;
+    EXEC(N'INSERT INTO [tipos_credito] ([Id], [Activo], [Categoria], [Codigo], [Descripcion], [Nombre], [TasaAnual], [TasaSeguroDesgravamenMensual])
+    VALUES (1, CAST(1 AS bit), N''Consumo'', N''CONSUMO'', N''Adquisición de bienes de consumo o pago de servicios.'', N''Crédito de Consumo'', 15.5, 0.05),
+    (2, CAST(1 AS bit), N''Vivienda'', N''INMOBILIARIO'', N''Compra, construcción o remodelación de vivienda.'', N''Crédito Inmobiliario'', 8.5, 0.04),
+    (3, CAST(1 AS bit), N''Microcrédito'', N''MICROCREDITO'', N''Financiamiento para actividades productivas a pequeña escala.'', N''Microcrédito'', 22.0, 0.07),
+    (4, CAST(1 AS bit), N''Productivo'', N''PRODUCTIVO_CORPORATIVO'', N''Empresas con ventas anuales superiores a cinco millones de dólares.'', N''Productivo Corporativo'', 6.79, 0.03),
+    (5, CAST(1 AS bit), N''Productivo'', N''PRODUCTIVO_EMPRESARIAL'', N''Empresas con ventas anuales entre uno y cinco millones de dólares.'', N''Productivo Empresarial'', 8.62, 0.035),
+    (6, CAST(1 AS bit), N''Productivo'', N''PRODUCTIVO_PYMES'', N''Pequeñas y medianas empresas con ventas anuales de hasta un millón de dólares.'', N''Productivo PYMES'', 9.18, 0.045),
+    (7, CAST(1 AS bit), N''Educativo'', N''EDUCATIVO'', N''Financiamiento de estudios de grado, posgrado y formación profesional.'', N''Crédito Educativo'', 8.95, 0.045),
+    (8, CAST(1 AS bit), N''Educativo'', N''EDUCATIVO_SOCIAL'', N''Estudios para personas en situación de vulnerabilidad, con tasa preferente.'', N''Crédito Educativo Social'', 5.49, 0.04),
+    (9, CAST(1 AS bit), N''Vivienda'', N''VIVIENDA_INTERES_SOCIAL'', N''Primera vivienda para familias de bajos ingresos, con tope de precio regulado.'', N''Vivienda de Interés Social'', 4.99, 0.04),
+    (10, CAST(1 AS bit), N''Vivienda'', N''VIVIENDA_INTERES_PUBLICO'', N''Primera vivienda dentro de proyectos calificados por el Estado.'', N''Vivienda de Interés Público'', 4.99, 0.04)');
+    IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Activo', N'Categoria', N'Codigo', N'Descripcion', N'Nombre', N'TasaAnual', N'TasaSeguroDesgravamenMensual') AND [object_id] = OBJECT_ID(N'[tipos_credito]'))
+        SET IDENTITY_INSERT [tipos_credito] OFF;
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114413_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260918234236_CreacionInicial') THEN
-    CREATE INDEX "IX_simulaciones_UsuarioId_FechaSimulacion" ON simulaciones ("UsuarioId", "FechaSimulacion");
-    END IF;
-END $EF$;
+    CREATE INDEX [IX_simulaciones_TipoCreditoId] ON [simulaciones] ([TipoCreditoId]);
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114413_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260918234236_CreacionInicial') THEN
-    CREATE UNIQUE INDEX "IX_tipos_credito_Codigo" ON tipos_credito ("Codigo");
-    END IF;
-END $EF$;
+    CREATE INDEX [IX_simulaciones_UsuarioId_FechaSimulacion] ON [simulaciones] ([UsuarioId], [FechaSimulacion]);
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114413_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260918234236_CreacionInicial') THEN
-    PERFORM setval(
-        pg_get_serial_sequence('tipos_credito', 'Id'),
-        GREATEST(
-            (SELECT MAX("Id") FROM tipos_credito) + 1,
-            nextval(pg_get_serial_sequence('tipos_credito', 'Id'))),
-        false);
-    END IF;
-END $EF$;
+    CREATE UNIQUE INDEX [IX_tipos_credito_Codigo] ON [tipos_credito] ([Codigo]);
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114413_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260918234236_CreacionInicial') THEN
-    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-    VALUES ('20260918234236_CreacionInicial', '10.0.12');
-    END IF;
-END $EF$;
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260924114413_CreacionInicial', N'10.0.12');
+END;
+
 COMMIT;
-
-START TRANSACTION;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
-    ALTER TABLE tipos_credito ADD "TasaSeguroDesgravamenMensual" numeric(7,4) NOT NULL DEFAULT 0.0;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
-    ALTER TABLE simulaciones ADD "FrecuenciaPago" character varying(20) NOT NULL DEFAULT 'Mensual';
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
-    ALTER TABLE simulaciones ADD "IncluyeSeguroDesgravamen" boolean NOT NULL DEFAULT FALSE;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
-    ALTER TABLE simulaciones ADD "IngresoMinimoRequerido" numeric(18,2) NOT NULL DEFAULT 0.0;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
-    UPDATE simulaciones SET "IngresoMinimoRequerido" = CEIL("CuotaFija" / 0.40 * 100) / 100 WHERE "IngresoMinimoRequerido" = 0;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
-    UPDATE tipos_credito SET "TasaSeguroDesgravamenMensual" = 0.05
-    WHERE "Id" = 1;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
-    UPDATE tipos_credito SET "TasaSeguroDesgravamenMensual" = 0.04
-    WHERE "Id" = 2;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
-    UPDATE tipos_credito SET "TasaSeguroDesgravamenMensual" = 0.07
-    WHERE "Id" = 3;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260921034629_FrecuenciaSeguroIngreso') THEN
-    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-    VALUES ('20260921034629_FrecuenciaSeguroIngreso', '10.0.12');
-    END IF;
-END $EF$;
-COMMIT;
-
-START TRANSACTION;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
-    ALTER TABLE tipos_credito ADD "Categoria" character varying(40) NOT NULL DEFAULT '';
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
-    UPDATE tipos_credito SET "Categoria" = 'Consumo'
-    WHERE "Id" = 1;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
-    UPDATE tipos_credito SET "Categoria" = 'Vivienda'
-    WHERE "Id" = 2;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
-    UPDATE tipos_credito SET "Categoria" = 'Microcrédito'
-    WHERE "Id" = 3;
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
-    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
-    VALUES (4, TRUE, 'Productivo', 'PRODUCTIVO_CORPORATIVO', 'Empresas con ventas anuales superiores a cinco millones de dólares.', 'Productivo Corporativo', 6.79, 0.03);
-    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
-    VALUES (5, TRUE, 'Productivo', 'PRODUCTIVO_EMPRESARIAL', 'Empresas con ventas anuales entre uno y cinco millones de dólares.', 'Productivo Empresarial', 8.62, 0.035);
-    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
-    VALUES (6, TRUE, 'Productivo', 'PRODUCTIVO_PYMES', 'Pequeñas y medianas empresas con ventas anuales de hasta un millón de dólares.', 'Productivo PYMES', 9.18, 0.045);
-    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
-    VALUES (7, TRUE, 'Educativo', 'EDUCATIVO', 'Financiamiento de estudios de grado, posgrado y formación profesional.', 'Crédito Educativo', 8.95, 0.045);
-    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
-    VALUES (8, TRUE, 'Educativo', 'EDUCATIVO_SOCIAL', 'Estudios para personas en situación de vulnerabilidad, con tasa preferente.', 'Crédito Educativo Social', 5.49, 0.04);
-    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
-    VALUES (9, TRUE, 'Vivienda', 'VIVIENDA_INTERES_SOCIAL', 'Primera vivienda para familias de bajos ingresos, con tope de precio regulado.', 'Vivienda de Interés Social', 4.99, 0.04);
-    INSERT INTO tipos_credito ("Id", "Activo", "Categoria", "Codigo", "Descripcion", "Nombre", "TasaAnual", "TasaSeguroDesgravamenMensual")
-    VALUES (10, TRUE, 'Vivienda', 'VIVIENDA_INTERES_PUBLICO', 'Primera vivienda dentro de proyectos calificados por el Estado.', 'Vivienda de Interés Público', 4.99, 0.04);
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
-    PERFORM setval(
-        pg_get_serial_sequence('tipos_credito', 'Id'),
-        GREATEST(
-            (SELECT MAX("Id") FROM tipos_credito) + 1,
-            nextval(pg_get_serial_sequence('tipos_credito', 'Id'))),
-        false);
-    END IF;
-END $EF$;
-
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923001233_CatalogoAmpliadoSegmentosBCE') THEN
-    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-    VALUES ('20260923001233_CatalogoAmpliadoSegmentosBCE', '10.0.12');
-    END IF;
-END $EF$;
-COMMIT;
-
+GO
 
 
 -- =============================================================================
---  4. assetdb — AssetService
+--  3. assetdb
 -- =============================================================================
 
-\connect assetdb
+IF DB_ID('assetdb') IS NULL
+    CREATE DATABASE [assetdb];
+GO
 
-CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
-    "MigrationId" character varying(150) NOT NULL,
-    "ProductVersion" character varying(32) NOT NULL,
-    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
-);
+USE [assetdb];
+GO
 
-START TRANSACTION;
+IF DB_NAME() <> 'assetdb'
+    THROW 50000, 'No se pudo cambiar a la base assetdb. Se detiene el script.', 1;
+GO
 
-DO $EF$
+IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923205851_CreacionInicial') THEN
-    CREATE TABLE categorias_activo (
-        "Id" integer GENERATED BY DEFAULT AS IDENTITY,
-        "Codigo" character varying(30) NOT NULL,
-        "Nombre" character varying(100) NOT NULL,
-        "Descripcion" character varying(300) NOT NULL,
-        "Habilitada" boolean NOT NULL,
-        CONSTRAINT "PK_categorias_activo" PRIMARY KEY ("Id")
+    CREATE TABLE [__EFMigrationsHistory] (
+        [MigrationId] nvarchar(150) NOT NULL,
+        [ProductVersion] nvarchar(32) NOT NULL,
+        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
     );
-    END IF;
-END $EF$;
+END;
+GO
 
-DO $EF$
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114424_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923205851_CreacionInicial') THEN
-    CREATE TABLE activos (
-        "Id" uuid NOT NULL,
-        "UsuarioId" uuid NOT NULL,
-        "CategoriaId" integer NOT NULL,
-        "Nombre" character varying(150) NOT NULL,
-        "Descripcion" character varying(300) NOT NULL,
-        "ValorEstimado" numeric(18,2) NOT NULL,
-        "FechaAdquisicion" date NOT NULL,
-        "FechaRegistro" timestamp with time zone NOT NULL,
-        "FechaActualizacion" timestamp with time zone,
-        CONSTRAINT "PK_activos" PRIMARY KEY ("Id"),
-        CONSTRAINT "FK_activos_categorias_activo_CategoriaId" FOREIGN KEY ("CategoriaId") REFERENCES categorias_activo ("Id") ON DELETE RESTRICT
+    CREATE TABLE [categorias_activo] (
+        [Id] int NOT NULL IDENTITY,
+        [Codigo] nvarchar(30) NOT NULL,
+        [Nombre] nvarchar(100) NOT NULL,
+        [Descripcion] nvarchar(300) NOT NULL,
+        [Habilitada] bit NOT NULL,
+        CONSTRAINT [PK_categorias_activo] PRIMARY KEY ([Id])
     );
-    END IF;
-END $EF$;
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114424_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923205851_CreacionInicial') THEN
-    INSERT INTO categorias_activo ("Id", "Codigo", "Descripcion", "Habilitada", "Nombre")
-    VALUES (1, 'VEHICULO', 'Automóviles, motocicletas y vehículos de carga.', TRUE, 'Vehículo');
-    INSERT INTO categorias_activo ("Id", "Codigo", "Descripcion", "Habilitada", "Nombre")
-    VALUES (2, 'INMUEBLE', 'Casas, departamentos, terrenos y locales comerciales.', TRUE, 'Inmueble');
-    INSERT INTO categorias_activo ("Id", "Codigo", "Descripcion", "Habilitada", "Nombre")
-    VALUES (3, 'MAQUINARIA', 'Equipos productivos, herramientas y maquinaria industrial.', TRUE, 'Maquinaria y equipo');
-    INSERT INTO categorias_activo ("Id", "Codigo", "Descripcion", "Habilitada", "Nombre")
-    VALUES (4, 'INVERSION', 'Depósitos a plazo, acciones y participaciones.', TRUE, 'Inversión financiera');
-    INSERT INTO categorias_activo ("Id", "Codigo", "Descripcion", "Habilitada", "Nombre")
-    VALUES (5, 'OTRO', 'Bienes que no encajan en las categorías anteriores.', TRUE, 'Otros bienes');
-    END IF;
-END $EF$;
+    CREATE TABLE [activos] (
+        [Id] uniqueidentifier NOT NULL,
+        [UsuarioId] uniqueidentifier NOT NULL,
+        [CategoriaId] int NOT NULL,
+        [Nombre] nvarchar(150) NOT NULL,
+        [Descripcion] nvarchar(300) NOT NULL,
+        [ValorEstimado] decimal(18,2) NOT NULL,
+        [FechaAdquisicion] date NOT NULL,
+        [FechaRegistro] datetime2 NOT NULL,
+        [FechaActualizacion] datetime2 NULL,
+        CONSTRAINT [PK_activos] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_activos_categorias_activo_CategoriaId] FOREIGN KEY ([CategoriaId]) REFERENCES [categorias_activo] ([Id]) ON DELETE NO ACTION
+    );
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114424_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923205851_CreacionInicial') THEN
-    CREATE INDEX "IX_activos_CategoriaId" ON activos ("CategoriaId");
-    END IF;
-END $EF$;
+    IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Codigo', N'Descripcion', N'Habilitada', N'Nombre') AND [object_id] = OBJECT_ID(N'[categorias_activo]'))
+        SET IDENTITY_INSERT [categorias_activo] ON;
+    EXEC(N'INSERT INTO [categorias_activo] ([Id], [Codigo], [Descripcion], [Habilitada], [Nombre])
+    VALUES (1, N''VEHICULO'', N''Automóviles, motocicletas y vehículos de carga.'', CAST(1 AS bit), N''Vehículo''),
+    (2, N''INMUEBLE'', N''Casas, departamentos, terrenos y locales comerciales.'', CAST(1 AS bit), N''Inmueble''),
+    (3, N''MAQUINARIA'', N''Equipos productivos, herramientas y maquinaria industrial.'', CAST(1 AS bit), N''Maquinaria y equipo''),
+    (4, N''INVERSION'', N''Depósitos a plazo, acciones y participaciones.'', CAST(1 AS bit), N''Inversión financiera''),
+    (5, N''OTRO'', N''Bienes que no encajan en las categorías anteriores.'', CAST(1 AS bit), N''Otros bienes'')');
+    IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Codigo', N'Descripcion', N'Habilitada', N'Nombre') AND [object_id] = OBJECT_ID(N'[categorias_activo]'))
+        SET IDENTITY_INSERT [categorias_activo] OFF;
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114424_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923205851_CreacionInicial') THEN
-    CREATE INDEX "IX_activos_UsuarioId_FechaRegistro" ON activos ("UsuarioId", "FechaRegistro");
-    END IF;
-END $EF$;
+    CREATE INDEX [IX_activos_CategoriaId] ON [activos] ([CategoriaId]);
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114424_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923205851_CreacionInicial') THEN
-    CREATE UNIQUE INDEX "IX_categorias_activo_Codigo" ON categorias_activo ("Codigo");
-    END IF;
-END $EF$;
+    CREATE INDEX [IX_activos_UsuarioId_FechaRegistro] ON [activos] ([UsuarioId], [FechaRegistro]);
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114424_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923205851_CreacionInicial') THEN
-    PERFORM setval(
-        pg_get_serial_sequence('categorias_activo', 'Id'),
-        GREATEST(
-            (SELECT MAX("Id") FROM categorias_activo) + 1,
-            nextval(pg_get_serial_sequence('categorias_activo', 'Id'))),
-        false);
-    END IF;
-END $EF$;
+    CREATE UNIQUE INDEX [IX_categorias_activo_Codigo] ON [categorias_activo] ([Codigo]);
+END;
 
-DO $EF$
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260924114424_CreacionInicial'
+)
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260923205851_CreacionInicial') THEN
-    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-    VALUES ('20260923205851_CreacionInicial', '10.0.12');
-    END IF;
-END $EF$;
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260924114424_CreacionInicial', N'10.0.12');
+END;
+
 COMMIT;
+GO
 

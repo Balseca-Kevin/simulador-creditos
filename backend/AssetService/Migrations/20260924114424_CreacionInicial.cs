@@ -1,6 +1,5 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -18,12 +17,12 @@ namespace AssetService.Migrations
                 name: "categorias_activo",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Codigo = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
-                    Nombre = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Descripcion = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
-                    Habilitada = table.Column<bool>(type: "boolean", nullable: false)
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Codigo = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    Nombre = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Descripcion = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    Habilitada = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -34,15 +33,15 @@ namespace AssetService.Migrations
                 name: "activos",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UsuarioId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CategoriaId = table.Column<int>(type: "integer", nullable: false),
-                    Nombre = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
-                    Descripcion = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
-                    ValorEstimado = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UsuarioId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CategoriaId = table.Column<int>(type: "int", nullable: false),
+                    Nombre = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Descripcion = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    ValorEstimado = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     FechaAdquisicion = table.Column<DateOnly>(type: "date", nullable: false),
-                    FechaRegistro = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    FechaActualizacion = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    FechaRegistro = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    FechaActualizacion = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {

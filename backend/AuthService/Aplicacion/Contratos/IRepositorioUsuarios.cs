@@ -5,7 +5,7 @@ namespace AuthService.Aplicacion.Contratos;
 /// <summary>
 /// Acceso a los usuarios persistidos. La interfaz vive en Aplicacion y la
 /// implementación en Estructura: la dependencia queda invertida y la capa de
-/// aplicación no necesita conocer EF Core ni PostgreSQL.
+/// aplicación no necesita conocer EF Core ni el motor de base de datos.
 /// </summary>
 public interface IRepositorioUsuarios
 {

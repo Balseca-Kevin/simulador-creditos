@@ -20,7 +20,7 @@ usuario autenticarse y generar tablas de amortización comparativas por los mét
 | `AuthService` | 5080 | .NET 10 (ASP.NET Core) | Registro, login y emisión de tokens JWT |
 | `CreditService` | 5090 | .NET 10 (ASP.NET Core) | Motor de cálculo, reglas de amortización y reporte PDF |
 | `AssetService` | 5005 | .NET 10 (ASP.NET Core) | Activos y categorías: garantías declaradas por el usuario |
-| Persistencia | 5432 | PostgreSQL 17 + EF Core | `authdb`, `creditdb` y `assetdb`, una por servicio |
+| Persistencia | 1433 | SQL Server Express + EF Core | `authdb`, `creditdb` y `assetdb`, una por servicio |
 
 Se aplica el patrón **Database per Service**: cada microservicio es dueño exclusivo de
 su base de datos y ningún servicio consulta las tablas del otro.
@@ -49,7 +49,7 @@ para no repetir la clave de firma en tres lugares.
             └───────┬───────┘ └───────┬───────┘ └───────┬───────┘
                     ▼                 ▼                 ▼
                [ authdb ]        [ creditdb ]      [ assetdb ]
-                          PostgreSQL 17  :5432
+                    SQL Server Express  SQLEXPRESS
 ```
 
 Los tres servicios son independientes: **ninguno llama a otro**. El patrimonio
@@ -232,25 +232,32 @@ cd simulador-creditos
 - Git
 - .NET SDK 10
 - Node.js 22 o superior
-- PostgreSQL 15 o superior, escuchando en `localhost:5432`
+- SQL Server: sirve **LocalDB**, que es lo que usa el equipo, o una instancia
+  con servicio propio como **Express**
 
-Comprueba las versiones con `git --version`, `dotnet --version`, `node --version`,
-`npm --version` y `psql --version`.
+Comprueba las versiones con `git --version`, `dotnet --version`, `node --version`
+y `npm --version`. Para SQL Server, `sqllocaldb info` debe listar `MSSQLLocalDB`.
 
-Cada colaborador necesita permisos para crear bases de datos en PostgreSQL. La contraseña
-del usuario `postgres` es local y nunca debe subirse a GitHub.
+> **Sobre LocalDB.** Es el motor de SQL Server en su forma más ligera: arranca
+> bajo demanda, no ocupa un servicio permanente y solo acepta conexiones locales.
+> Para desarrollo y para la demostración se comporta igual que Express: mismo
+> T-SQL, mismas migraciones, mismo proveedor de EF Core. Cambiar a Express o a un
+> servidor remoto es editar la cadena de conexión, nada más.
+
+Se usa **autenticación de Windows**, así que no hay contraseñas de base de datos
+en ningún archivo. Tu usuario necesita permiso para crear bases, que en LocalDB
+tiene por omisión al ser el propietario de la instancia.
 
 ### 1. Configurar las credenciales locales
 
 El archivo `backend/AuthService/appsettings.Development.json` está excluido del
-control de versiones porque contiene la contraseña de la base y la clave de firma
-de los tokens. Créalo a partir de esta plantilla y reemplaza `TU_CONTRASEÑA` por
-la contraseña local del usuario `postgres`:
+control de versiones porque contiene la clave de firma de los tokens. Créalo a
+partir de esta plantilla:
 
 ```jsonc
 {
   "ConnectionStrings": {
-    "AuthDb": "Host=localhost;Port=5432;Database=authdb;Username=postgres;Password=TU_CONTRASEÑA"
+    "AuthDb": "Server=(localdb)\\MSSQLLocalDB;Database=authdb;Trusted_Connection=True;TrustServerCertificate=True"
   },
   "Jwt": {
     "Issuer": "SimuladorCreditos.AuthApi",
@@ -267,7 +274,7 @@ Crea también `backend/CreditService/appsettings.Development.json`:
 ```jsonc
 {
   "ConnectionStrings": {
-    "CreditDb": "Host=localhost;Port=5432;Database=creditdb;Username=postgres;Password=TU_CONTRASEÑA"
+    "CreditDb": "Server=(localdb)\\MSSQLLocalDB;Database=creditdb;Trusted_Connection=True;TrustServerCertificate=True"
   },
   "Jwt": {
     "Issuer": "SimuladorCreditos.AuthApi",
@@ -283,7 +290,7 @@ Y `backend/AssetService/appsettings.Development.json`:
 ```jsonc
 {
   "ConnectionStrings": {
-    "AssetDb": "Host=localhost;Port=5432;Database=assetdb;Username=postgres;Password=TU_CONTRASEÑA"
+    "AssetDb": "Server=(localdb)\\MSSQLLocalDB;Database=assetdb;Trusted_Connection=True;TrustServerCertificate=True"
   },
   "Jwt": {
     "Issuer": "SimuladorCreditos.AuthApi",
@@ -302,10 +309,11 @@ Y `backend/AssetService/appsettings.Development.json`:
 Estos tres archivos están excluidos por `.gitignore`, así que cada persona debe
 crearlos en su propia copia. No se debe publicar una contraseña ni una clave JWT.
 
-Comprueba que PostgreSQL esté iniciado y escuchando en `5432`. No hace falta crear
-las bases a mano: en desarrollo EF Core crea `authdb`, `creditdb` y `assetdb`,
-aplica las migraciones y siembra los catálogos. Si el usuario no puede crear
-bases, un administrador debe crearlas previamente o concederle ese permiso.
+No hace falta arrancar nada a mano: `iniciar.bat` levanta LocalDB si hace falta.
+Tampoco hay que crear las bases: en desarrollo EF Core crea `authdb`, `creditdb`
+y `assetdb`, aplica las migraciones y siembra los catálogos. Si el usuario no
+puede crear bases, un administrador debe crearlas previamente o concederle ese
+permiso.
 
 ### 2. Levantar el sistema
 
@@ -377,8 +385,12 @@ En desarrollo no hace falta: cada servicio crea su base y aplica sus migraciones
 al arrancar. Para entornos donde la aplicación no tiene permisos de DDL:
 
 ```bash
-psql -U postgres -h localhost -f database/database.sql
+sqlcmd -S "(localdb)\MSSQLLocalDB" -E -i database\database.sql
 ```
 
-El script es idempotente y se genera a partir de las migraciones, que siguen
-siendo la fuente de la verdad del esquema.
+También se puede abrir en SQL Server Management Studio, activando el **modo
+SQLCMD** para que se respete la directiva que detiene el script ante el primer
+error.
+
+El script es idempotente —ejecutarlo dos veces no duplica nada— y se genera a
+partir de las migraciones, que siguen siendo la fuente de la verdad del esquema.

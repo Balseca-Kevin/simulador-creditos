@@ -35,18 +35,43 @@ if errorlevel 1 (
     goto :fin
 )
 
-REM PostgreSQL debe estar escuchando: sin base, los servicios arrancan y fallan
+REM SQL Server debe estar disponible: sin base, los servicios arrancan y fallan
 REM en la primera peticion, que es mucho mas dificil de diagnosticar.
-netstat -an | findstr /C:"127.0.0.1:5432" | findstr /I "LISTENING" >nul 2>&1
-if errorlevel 1 (
-    netstat -an | findstr /C:"0.0.0.0:5432" | findstr /I "LISTENING" >nul 2>&1
-    if errorlevel 1 (
-        echo [AVISO] No hay nada escuchando en el puerto 5432.
-        echo         Revisa que el servicio de PostgreSQL este iniciado.
-        echo.
-        choice /C SN /M "Continuar de todas formas"
-        if errorlevel 2 goto :fin
-    )
+REM
+REM Se admiten las dos formas de tenerlo: LocalDB, que arranca bajo demanda y
+REM no es un servicio permanente, o una instancia con servicio propio como
+REM SQLEXPRESS. Se comprueba el servicio y no un puerto, porque una instancia
+REM con nombre no usa necesariamente el 1433.
+set "SQL_OK="
+set "LOCALDB="
+
+REM El instalador de LocalDB no siempre deja SqlLocalDB.exe en la ruta del
+REM sistema, asi que si no se encuentra por nombre se busca donde se instala.
+where sqllocaldb >nul 2>&1
+if not errorlevel 1 set "LOCALDB=sqllocaldb"
+if not defined LOCALDB (
+    for /f "delims=" %%E in ('dir /b /s "%ProgramFiles%\Microsoft SQL Server\SqlLocalDB.exe" 2^>nul') do set "LOCALDB=%%E"
+)
+
+if defined LOCALDB (
+    "%LOCALDB%" start MSSQLLocalDB >nul 2>&1
+    if not errorlevel 1 set "SQL_OK=LocalDB"
+)
+
+if not defined SQL_OK (
+    sc query MSSQL$SQLEXPRESS | findstr /I "RUNNING" >nul 2>&1
+    if not errorlevel 1 set "SQL_OK=SQLEXPRESS"
+)
+
+if not defined SQL_OK (
+    echo [AVISO] No se encontro SQL Server disponible.
+    echo         Se busco LocalDB ^(instancia MSSQLLocalDB^) y el servicio MSSQL$SQLEXPRESS.
+    echo         Revisa la cadena de conexion en los appsettings.Development.json.
+    echo.
+    choice /C SN /M "Continuar de todas formas"
+    if errorlevel 2 goto :fin
+) else (
+    echo [0/6] SQL Server disponible mediante %SQL_OK%.
 )
 
 REM La configuracion local no se versiona: si falta, los servicios no arrancan.

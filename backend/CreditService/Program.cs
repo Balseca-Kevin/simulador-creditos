@@ -16,9 +16,9 @@ const string PoliticaCors = "SpaSimulador";
 
 // ---------- Persistencia: base "creditdb", exclusiva de este microservicio ----------
 builder.Services.AddDbContext<CreditDbContext>(opciones =>
-    opciones.UseNpgsql(
+    opciones.UseSqlServer(
         builder.Configuration.GetConnectionString("CreditDb"),
-        npgsql => npgsql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
+        sql => sql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
 
 builder.Services.AddScoped<IMotorAmortizacion, MotorAmortizacion>();
 

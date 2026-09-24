@@ -16,7 +16,7 @@
          todo lo que depende de una tecnologia concreta vive en esta capa. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
     <PackageReference Include="QuestPDF" Version="2026.9.0" />
   </ItemGroup>
 

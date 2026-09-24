@@ -5,7 +5,7 @@ namespace CreditService.Aplicacion.Contratos;
 /// <summary>
 /// Acceso a los datos del microservicio de créditos. La interfaz vive en
 /// Aplicacion y la implementación en Estructura, de modo que los casos de uso
-/// no dependen de EF Core ni de PostgreSQL.
+/// no dependen de EF Core ni del motor de base de datos.
 /// </summary>
 public interface IRepositorioCreditos
 {

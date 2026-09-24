@@ -10,6 +10,17 @@ public class AuthDbContext(DbContextOptions<AuthDbContext> options) : DbContext(
 {
     public DbSet<Usuario> Usuarios => Set<Usuario>();
 
+    /// <summary>
+    /// Todas las fechas se guardan y se leen en UTC. Ver <see cref="ConvertidorFechaUtc"/>:
+    /// sin esto, SQL Server las devolvería sin marca de zona y el navegador las
+    /// interpretaría como hora local.
+    /// </summary>
+    protected override void ConfigureConventions(ModelConfigurationBuilder configuracion)
+    {
+        configuracion.Properties<DateTime>().HaveConversion<ConvertidorFechaUtc>();
+        configuracion.Properties<DateTime?>().HaveConversion<ConvertidorFechaUtcOpcional>();
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Usuario>(entidad =>

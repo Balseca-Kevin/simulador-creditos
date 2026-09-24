@@ -540,6 +540,71 @@ simplemente no se muestra.
 
 ---
 
+## Migración de PostgreSQL a SQL Server
+
+**Origen:** el cliente comunicó que el motor de base de datos cambiaba: ya no
+sería PostgreSQL, sino SQL Server.
+
+### Lo que la arquitectura evitó
+
+El código de la aplicación **no tenía una sola línea de SQL escrita a mano**: los
+repositorios usan solo LINQ y EF Core traduce al motor que toque. El acoplamiento
+estaba confinado a tres puntos por servicio: el paquete NuGet, la llamada
+`UseNpgsql` del anfitrión y las migraciones.
+
+Dominio, Aplicación y Presentación **no se tocaron**. Es la demostración práctica
+de para qué sirve invertir la dependencia con la base de datos: cambiar de motor
+no obligó a revisar ni las reglas de negocio ni los controladores.
+
+### El defecto silencioso que se evitó
+
+PostgreSQL tiene un tipo con zona horaria y devolvía las fechas ya marcadas como
+UTC. El `datetime2` de SQL Server **no guarda zona** y las devuelve sin marca. Sin
+intervención, el serializador JSON habría escrito la fecha sin la `Z` final, el
+navegador la habría interpretado como hora local y el historial y el reporte PDF
+habrían mostrado horas corridas cinco horas.
+
+Nada habría fallado: el sistema seguiría funcionando y mintiendo. Se resolvió con
+un `ValueConverter` en cada contexto que guarda y devuelve siempre en UTC, y se
+comprobó que las fechas vuelven con la `Z`.
+
+### Obstáculos de instalación
+
+SQL Server Express no se pudo instalar en el equipo: el paquete de winget apunta
+a un enlace caído, y el instalador descargado desde el enlace oficial aborta
+incluso al invocarlo con `/?`, señal de que el material autoextraído queda
+inservible. Se instaló **LocalDB**, que venía dentro de ese mismo paquete: es el
+mismo motor en su forma ligera, con idéntico T-SQL, migraciones y proveedor de
+EF Core. Pasar a Express es editar la cadena de conexión.
+
+Como se eligió **autenticación de Windows**, las cadenas de conexión dejaron de
+contener contraseñas y pudieron volver a los archivos versionados.
+
+### Un defecto encontrado en el script del esquema
+
+Al validar `database.sql` contra una instancia limpia, un `USE` falló y el script
+**siguió adelante**, creando las tablas de los tres servicios dentro de la misma
+base. Fallaba en silencio y en el lugar equivocado.
+
+Se blindó de dos formas: la directiva `:on error exit`, que detiene la ejecución
+ante el primer error, y una comprobación de `DB_NAME()` tras cada `USE` que
+lanza un error explícito si el cambio de base no ocurrió.
+
+### Verificación
+
+- 66 pruebas unitarias en verde.
+- Las tres bases creadas en SQL Server con sus catálogos: 10 tipos de crédito y
+  5 categorías de activo.
+- Flujo completo sobre el motor nuevo: registro, login, correo duplicado,
+  catálogos, simulación, activos y patrimonio.
+- **Los cálculos no cambiaron**: la misma simulación da cuota de 492.25 e ingreso
+  mínimo de 1 230.63, idénticos a los obtenidos con PostgreSQL.
+- Fechas devueltas en UTC, con la `Z` final.
+- `database.sql` ejecutado sobre las bases existentes: cero errores y ningún
+  cambio, confirmando que es idempotente.
+
+---
+
 ## Registro de evidencias
 
 Se completa al cierre de cada sprint.
@@ -554,3 +619,4 @@ Se completa al cierre de cada sprint.
 | Catálogo | 23/09/2026 | Catálogo ampliado de 3 a 10 tipos con las tasas del BCE de agosto 2026, agrupados en 5 categorías. Formulario con listas desplegables que permiten escribir y muestran la cuota estimada de cada opción. | La estimación se resolvió en el servidor y no en el navegador, para no duplicar el motor de amortización en dos lenguajes. Se verificó que coincide al centavo con la simulación real en los 10 tipos. Se descartaron los segmentos vehicular y comercial por no existir en la tabla del BCE. |
 | Reporte PDF | 23/09/2026 | La tabla de amortización se entrega como reporte PDF de varias páginas, que se abre en el visor del navegador con paginación, impresión y descarga. La página conserva solo la comparación de los dos métodos. | El PDF se genera en el servidor reutilizando la respuesta de la simulación, para que no pueda mostrar cifras distintas a la pantalla. La pestaña se abre con un enlace de un solo uso en lugar de poner el token de sesión en la URL. Al revisar el documento generado se corrigieron dos defectos de presentación. |
 | Arquitectura | 23/09/2026 | Cada capa pasa a ser un proyecto independiente, de modo que el compilador impone la cebolla. Se agrega AssetService (puerto 5005, base `assetdb`) con CRUD de garantías, resumen de patrimonio y pantalla propia. 14 proyectos y 66 pruebas en verde. | Se confirmó que el requisito del ORM ya estaba cumplido con EF Core y no se inventó trabajo. Los activos se definieron como garantías del solicitante tras consultarlo, en lugar de copiar un CRUD sin relación con el dominio. Los servicios siguen sin conocerse: es la SPA quien une sus datos. |
+| Base de datos | 24/09/2026 | Motor migrado de PostgreSQL a SQL Server. Dominio, Aplicación y Presentación no se tocaron: solo el paquete, la llamada del anfitrión y las migraciones. Los cálculos dan exactamente los mismos valores. | Se evitó un defecto silencioso de fechas: `datetime2` no guarda zona horaria y el historial habría mostrado horas corridas. Express no se pudo instalar por enlaces caídos de Microsoft, así que se usó LocalDB, que es el mismo motor. Al validar el script del esquema se descubrió que no se detenía ante un `USE` fallido y creaba las tablas en la base equivocada. |

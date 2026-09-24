@@ -16,9 +16,9 @@ const string PoliticaCors = "SpaSimulador";
 // este proyecto: hay que decírselo a EF, que por omisión las busca junto al
 // contexto.
 builder.Services.AddDbContext<AuthDbContext>(opciones =>
-    opciones.UseNpgsql(
+    opciones.UseSqlServer(
         builder.Configuration.GetConnectionString("AuthDb"),
-        npgsql => npgsql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
+        sql => sql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
 
 // ---------- Emisión de tokens ----------
 builder.Services.Configure<JwtOptions>(

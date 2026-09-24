@@ -11,6 +11,17 @@ public class AssetDbContext(DbContextOptions<AssetDbContext> options) : DbContex
     public DbSet<CategoriaActivo> Categorias => Set<CategoriaActivo>();
     public DbSet<Activo> Activos => Set<Activo>();
 
+    /// <summary>
+    /// Todas las fechas se guardan y se leen en UTC. Ver <see cref="ConvertidorFechaUtc"/>:
+    /// sin esto, SQL Server las devolvería sin marca de zona y el navegador las
+    /// interpretaría como hora local.
+    /// </summary>
+    protected override void ConfigureConventions(ModelConfigurationBuilder configuracion)
+    {
+        configuracion.Properties<DateTime>().HaveConversion<ConvertidorFechaUtc>();
+        configuracion.Properties<DateTime?>().HaveConversion<ConvertidorFechaUtcOpcional>();
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<CategoriaActivo>(entidad =>
