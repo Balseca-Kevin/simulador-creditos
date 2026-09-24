@@ -13,13 +13,8 @@ var builder = WebApplication.CreateBuilder(args);
 const string PoliticaCors = "SpaSimulador";
 
 // ---------- Persistencia: base "assetdb", exclusiva de este microservicio ----------
-// El contexto vive en la capa Estructura, pero las migraciones se mantienen en
-// este proyecto: hay que decírselo a EF, que por omisión las busca junto al
-// contexto.
 builder.Services.AddDbContext<AssetDbContext>(opciones =>
-    opciones.UseSqlServer(
-        builder.Configuration.GetConnectionString("AssetDb"),
-        sql => sql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
+    opciones.UseSqlServer(builder.Configuration.GetConnectionString("AssetDb")));
 
 // ---------- Casos de uso y acceso a datos ----------
 // La interfaz del repositorio vive en Aplicacion y su implementación en
@@ -58,10 +53,7 @@ builder.Services.AddCors(opciones =>
 
 builder.Services
     .AddControllers()
-    .ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = ErroresEnEspanol.Respuesta)
-    // Los controladores viven en el proyecto Presentacion, no en este: hay que
-    // registrar explícitamente ese ensamblado para que ASP.NET los descubra.
-    .AddApplicationPart(typeof(ActivosController).Assembly);
+    .ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = ErroresEnEspanol.Respuesta);
 
 builder.Services.AddOpenApi();
 

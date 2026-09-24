@@ -7,24 +7,21 @@
   </PropertyGroup>
 
   <!--
-    Proyecto anfitrion del microservicio: arranca el proceso y conecta las capas
-    en Program.cs. Las carpetas de las capas son proyectos propios, asi que se
-    excluyen de la compilacion de este para no compilarlas dos veces.
+    Un microservicio, un proyecto. Las capas son las carpetas Dominio,
+    Aplicacion, Estructura y Presentacion, tal como las ordena la estructura
+    de la asignatura. Los paquetes se agrupan abajo segun la capa que los usa.
   -->
-  <ItemGroup>
-    <Compile Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
-    <EmbeddedResource Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
-    <None Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
-  </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="Estructura\CreditService.Estructura.csproj" />
-    <ProjectReference Include="Presentacion\CreditService.Presentacion.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <!-- Presentacion: validacion del token emitido por AuthService. -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+
+    <!-- Estructura: acceso a datos y reporte en PDF. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
+    <PackageReference Include="QuestPDF" Version="2026.9.0" />
+    <!-- Solo para el comando dotnet ef; las migraciones viven en Migrations. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

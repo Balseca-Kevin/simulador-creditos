@@ -7,27 +7,24 @@
   </PropertyGroup>
 
   <!--
-    Proyecto anfitrion del microservicio: arranca el proceso y conecta las capas
-    en Program.cs. Es el unico punto donde Aplicacion y Estructura se encuentran.
-
-    Las carpetas de las capas son proyectos propios, asi que se excluyen de la
-    compilacion de este: de lo contrario sus archivos se compilarian dos veces.
+    Un microservicio, un proyecto. Las capas son las carpetas Dominio,
+    Aplicacion, Estructura y Presentacion, tal como las ordena la estructura
+    de la asignatura. Los paquetes se agrupan abajo segun la capa que los usa.
   -->
-  <ItemGroup>
-    <Compile Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
-    <EmbeddedResource Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
-    <None Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
-  </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="Estructura\AuthService.Estructura.csproj" />
-    <ProjectReference Include="Presentacion\AuthService.Presentacion.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <!-- Presentacion: autenticacion por token y documentacion de la API. -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
-    <!-- Solo para el comando dotnet ef; las migraciones viven en este proyecto. -->
+
+    <!-- Aplicacion: emision de tokens y hash de contrasenas. -->
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.2" />
+
+    <!-- Estructura: acceso a datos. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
+    <!-- Solo para el comando dotnet ef; las migraciones viven en Migrations. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

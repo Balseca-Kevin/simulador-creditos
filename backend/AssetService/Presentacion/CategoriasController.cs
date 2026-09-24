@@ -1,6 +1,7 @@
 using AssetService.Aplicacion.Dtos;
 using AssetService.Aplicacion.Servicios;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace AssetService.Presentacion;
 

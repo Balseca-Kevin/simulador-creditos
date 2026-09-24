@@ -12,13 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 const string PoliticaCors = "SpaSimulador";
 
 // ---------- Persistencia: base "authdb", exclusiva de este microservicio ----------
-// El contexto vive en la capa Estructura, pero las migraciones se mantienen en
-// este proyecto: hay que decírselo a EF, que por omisión las busca junto al
-// contexto.
 builder.Services.AddDbContext<AuthDbContext>(opciones =>
-    opciones.UseSqlServer(
-        builder.Configuration.GetConnectionString("AuthDb"),
-        sql => sql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
+    opciones.UseSqlServer(builder.Configuration.GetConnectionString("AuthDb")));
 
 // ---------- Emisión de tokens ----------
 builder.Services.Configure<JwtOptions>(
@@ -61,11 +56,7 @@ builder.Services.AddCors(opciones =>
         .AllowAnyHeader()
         .AllowAnyMethod()));
 
-// Los controladores viven en el proyecto Presentacion, no en este: hay que
-// registrar explicitamente ese ensamblado para que ASP.NET los descubra.
-builder.Services
-    .AddControllers()
-    .AddApplicationPart(typeof(AuthService.Presentacion.AuthController).Assembly);
+builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

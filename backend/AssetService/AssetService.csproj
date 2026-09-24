@@ -6,20 +6,21 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
-    <EmbeddedResource Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
-    <None Remove="Dominio\**;Aplicacion\**;Estructura\**;Presentacion\**" />
-  </ItemGroup>
+  <!--
+    Un microservicio, un proyecto. Las capas son las carpetas Dominio,
+    Aplicacion, Estructura y Presentacion, tal como las ordena la estructura
+    de la asignatura. Los paquetes se agrupan abajo segun la capa que los usa.
+  -->
 
   <ItemGroup>
-    <ProjectReference Include="Estructura\AssetService.Estructura.csproj" />
-    <ProjectReference Include="Presentacion\AssetService.Presentacion.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <!-- Presentacion: validacion del token emitido por AuthService. -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+
+    <!-- Estructura: acceso a datos. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
+    <!-- Solo para el comando dotnet ef; las migraciones viven en Migrations. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

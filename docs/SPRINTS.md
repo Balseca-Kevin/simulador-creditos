@@ -508,6 +508,10 @@ Dos detalles que hubo que resolver al separar:
 dentro de `Aplicacion`. El compilador lo rechazó con `error CS0234`, que es
 justamente lo que antes no ocurría.
 
+> **Nota posterior (24/09/2026):** el cliente observó que la asignatura no pide
+> Onion. Esta separación por compilación se deshizo; ver
+> [Vuelta a la estructura en capas](#vuelta-a-la-estructura-en-capas).
+
 ### 3. AssetService (puerto 5005, base `assetdb`)
 
 La descripción venía del Sistema de Depreciación y no mencionaba créditos, así
@@ -605,6 +609,65 @@ lanza un error explícito si el cambio de base no ocurrió.
 
 ---
 
+## Vuelta a la estructura en capas
+
+**Origen:** el cliente observó que el proyecto no debe seguir la arquitectura
+Onion. En la iteración del 23/09 se había ido más allá de lo pedido: convertir
+cada capa en un proyecto propio para que el compilador impidiera saltarse el
+orden es precisamente Onion, y la asignatura no la pide.
+
+### Qué se deshizo
+
+Las capas vuelven a ser **carpetas dentro de un único proyecto por
+microservicio**, que es la estructura de referencia de la asignatura: `Dominio`,
+`Aplicacion`, `Estructura`, `Presentacion`, `Migrations` y `Program.cs`.
+
+De 14 proyectos se pasa a 5: los tres microservicios, el gateway y las pruebas.
+
+Desaparecen dos piezas que solo existían por la separación:
+
+- `AddApplicationPart`, que registraba el ensamblado de los controladores. Al
+  volver al proyecto de entrada, ASP.NET los descubre solo.
+- `MigrationsAssembly`, que indicaba a EF dónde buscar las migraciones. Ahora
+  comparten ensamblado con el contexto, que es donde EF las busca por omisión.
+
+### Por qué costó una tarde y no un sprint
+
+**El código no se movió de sitio.** Los espacios de nombres ya eran
+`CreditService.Dominio`, `CreditService.Aplicacion` y equivalentes, así que
+juntar los proyectos no obligó a cambiar un solo `using`. Todo el cambio en
+archivos `.cs` son 28 líneas menos repartidas en los tres `Program.cs` y dos
+`using` añadidos; el resto es borrar archivos `.csproj`.
+
+Ni un archivo de `Dominio`, `Aplicacion` o `Estructura` se tocó. Es el mismo
+efecto que se vio al cambiar de motor de base de datos: lo que está separado por
+responsabilidad se deja reorganizar sin reescribirlo.
+
+### Defecto que la separación mantenía oculto
+
+`AuthService` fijaba `System.IdentityModel.Tokens.Jwt` en 8.15.0 desde la capa
+Aplicacion, que no veía el paquete de JwtBearer. Al quedar todo en un proyecto
+salió el conflicto: JwtBearer 10.0.12 exige 8.19.2 y NuGet rechazó la
+degradación. Se subió la versión. El conflicto existía desde antes; la
+separación solo impedía verlo.
+
+Se retiraron además dos paquetes que el SDK web ya incluye y que se arrastraban
+desde las capas: `Microsoft.Extensions.Options` y
+`Microsoft.Extensions.Caching.Memory`.
+
+### Verificación
+
+- Solución de 5 proyectos compilando sin advertencias; 66 pruebas en verde.
+- `dotnet ef migrations list` sigue encontrando la migración sin configuración
+  adicional.
+- Un endpoint protegido pedido sin token responde **401 y no 404**: es la prueba
+  de que ASP.NET descubre los controladores sin registro explícito.
+- Flujo completo sobre los tres servicios: registro, catálogo de 10 tipos,
+  simulación, y categorías de activos. Las fechas siguen devolviéndose con la
+  `Z` final.
+
+---
+
 ## Registro de evidencias
 
 Se completa al cierre de cada sprint.
@@ -620,3 +683,4 @@ Se completa al cierre de cada sprint.
 | Reporte PDF | 23/09/2026 | La tabla de amortización se entrega como reporte PDF de varias páginas, que se abre en el visor del navegador con paginación, impresión y descarga. La página conserva solo la comparación de los dos métodos. | El PDF se genera en el servidor reutilizando la respuesta de la simulación, para que no pueda mostrar cifras distintas a la pantalla. La pestaña se abre con un enlace de un solo uso en lugar de poner el token de sesión en la URL. Al revisar el documento generado se corrigieron dos defectos de presentación. |
 | Arquitectura | 23/09/2026 | Cada capa pasa a ser un proyecto independiente, de modo que el compilador impone la cebolla. Se agrega AssetService (puerto 5005, base `assetdb`) con CRUD de garantías, resumen de patrimonio y pantalla propia. 14 proyectos y 66 pruebas en verde. | Se confirmó que el requisito del ORM ya estaba cumplido con EF Core y no se inventó trabajo. Los activos se definieron como garantías del solicitante tras consultarlo, en lugar de copiar un CRUD sin relación con el dominio. Los servicios siguen sin conocerse: es la SPA quien une sus datos. |
 | Base de datos | 24/09/2026 | Motor migrado de PostgreSQL a SQL Server. Dominio, Aplicación y Presentación no se tocaron: solo el paquete, la llamada del anfitrión y las migraciones. Los cálculos dan exactamente los mismos valores. | Se evitó un defecto silencioso de fechas: `datetime2` no guarda zona horaria y el historial habría mostrado horas corridas. Express no se pudo instalar por enlaces caídos de Microsoft, así que se usó LocalDB, que es el mismo motor. Al validar el script del esquema se descubrió que no se detenía ante un `USE` fallido y creaba las tablas en la base equivocada. |
+| Arquitectura (corrección) | 24/09/2026 | Las capas vuelven a ser carpetas dentro de un proyecto por microservicio, que es la estructura de la asignatura. De 14 proyectos a 5, sin advertencias y con 66 pruebas en verde. | El cliente observó que no debe usarse Onion, y se deshizo la separación por compilación que se había añadido de más. Ningún archivo de Dominio, Aplicación o Estructura cambió: solo el cableado de `Program.cs`, igual que en el cambio de motor. Al fusionar salió a la luz un conflicto de versiones de `System.IdentityModel.Tokens.Jwt` que la separación mantenía oculto. |

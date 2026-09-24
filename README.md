@@ -49,38 +49,35 @@ para no repetir la clave de firma en tres lugares.
             └───────┬───────┘ └───────┬───────┘ └───────┬───────┘
                     ▼                 ▼                 ▼
                [ authdb ]        [ creditdb ]      [ assetdb ]
-                    SQL Server Express  SQLEXPRESS
+                  SQL Server, una base por servicio
 ```
 
 Los tres servicios son independientes: **ninguno llama a otro**. El patrimonio
 declarado aparece junto al ingreso mínimo porque la SPA consulta a los dos y une
 los resultados, no porque CreditService conozca a AssetService.
 
-### Arquitectura Onion dentro de cada microservicio
+### Capas dentro de cada microservicio
 
-Cada capa es **un proyecto propio**, no una carpeta. Las referencias apuntan solo
-hacia adentro, así que romper una capa deja de ser un descuido posible y pasa a
-ser un error de compilación.
+Cada microservicio es **un solo proyecto**, y sus capas son las carpetas que
+define la estructura de la asignatura:
 
-| Proyecto | Contiene | Referencia a |
-|---|---|---|
-| `Dominio` | Entidades y reglas propias del negocio | **nada** |
-| `Aplicacion` | Contratos, DTOs y casos de uso | `Dominio` |
-| `Estructura` | EF Core, repositorios, generación de PDF | `Aplicacion` |
-| `Presentacion` | Controladores y formato de las respuestas HTTP | `Aplicacion` |
-| *(anfitrión)* | `Program.cs`, configuración y `Migrations/` | `Estructura`, `Presentacion` |
+| Carpeta | Contiene |
+|---|---|
+| `Dominio` | Entidades y reglas propias del negocio |
+| `Aplicacion` | Casos de uso, DTOs y los contratos de acceso a datos |
+| `Estructura` | EF Core, repositorios y generación del PDF |
+| `Presentacion` | Controladores y formato de las respuestas HTTP |
+| `Migrations` | Historial del esquema de la base |
+| `Program.cs` | Arranque: es donde se conectan las capas |
 
-La dependencia con la base de datos está **invertida**: `Aplicacion` declara qué
-necesita (`IRepositorioUsuarios`, `IRepositorioCreditos`, `IRepositorioActivos`)
-y `Estructura` lo implementa. Las dos se encuentran solo en el anfitrión, al
-arrancar.
+El acceso a datos está aislado en `Estructura`. `Aplicacion` trabaja contra
+`IRepositorioUsuarios`, `IRepositorioCreditos` e `IRepositorioActivos`, y
+`Program.cs` decide qué implementación se inyecta. Por eso los casos de uso no
+escriben SQL ni nombran el motor de base de datos, y cambiar de PostgreSQL a
+SQL Server no obligó a tocarlos.
 
-Como consecuencia, `Aplicacion` no conoce EF Core y `Presentacion` no conoce la
-base de datos: los controladores solo traducen entre HTTP y casos de uso, y el
-`Resultado<T>` que reciben indica el motivo del fallo sin hablar de códigos HTTP.
-
-Comprobado añadiendo a propósito un `using CreditService.Estructura` dentro de
-`Aplicacion`: el compilador lo rechaza con `error CS0234`.
+Los controladores solo traducen entre HTTP y casos de uso: el `Resultado<T>` que
+reciben indica el motivo del fallo sin hablar de códigos de estado.
 
 ## Reglas de negocio
 
@@ -163,15 +160,7 @@ proyecto_SimuladorDeCreditos/
 │
 ├── backend/
 │   │
-│   ├── AuthService/              Cada capa es un proyecto independiente
-│   │   ├── Dominio/                AuthService.Dominio.csproj
-│   │   ├── Aplicacion/             AuthService.Aplicacion.csproj
-│   │   ├── Estructura/             AuthService.Estructura.csproj
-│   │   ├── Presentacion/           AuthService.Presentacion.csproj
-│   │   ├── Migrations/
-│   │   └── Program.cs              AuthService.csproj (anfitrión)
-│   │
-│   ├── CreditService/            Misma estructura de capas
+│   ├── AuthService/              Un proyecto: AuthService.csproj
 │   │   ├── Dominio/
 │   │   ├── Aplicacion/
 │   │   ├── Estructura/
@@ -179,7 +168,15 @@ proyecto_SimuladorDeCreditos/
 │   │   ├── Migrations/
 │   │   └── Program.cs
 │   │
-│   ├── AssetService/             Misma estructura de capas
+│   ├── CreditService/            Mismas capas
+│   │   ├── Dominio/
+│   │   ├── Aplicacion/
+│   │   ├── Estructura/
+│   │   ├── Presentacion/
+│   │   ├── Migrations/
+│   │   └── Program.cs
+│   │
+│   ├── AssetService/             Mismas capas
 │   │   ├── Dominio/
 │   │   ├── Aplicacion/
 │   │   ├── Estructura/

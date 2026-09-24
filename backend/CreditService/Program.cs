@@ -16,9 +16,7 @@ const string PoliticaCors = "SpaSimulador";
 
 // ---------- Persistencia: base "creditdb", exclusiva de este microservicio ----------
 builder.Services.AddDbContext<CreditDbContext>(opciones =>
-    opciones.UseSqlServer(
-        builder.Configuration.GetConnectionString("CreditDb"),
-        sql => sql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
+    opciones.UseSqlServer(builder.Configuration.GetConnectionString("CreditDb")));
 
 builder.Services.AddScoped<IMotorAmortizacion, MotorAmortizacion>();
 
@@ -69,10 +67,7 @@ builder.Services
     // Las frecuencias viajan como texto ("Trimestral") y no como número: el JSON
     // se entiende sin conocer el enum y un valor inválido se rechaza con 400.
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()))
-    .ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = ErroresEnEspanol.Respuesta)
-    // Los controladores viven en el proyecto Presentacion, no en este: hay que
-    // registrar explicitamente ese ensamblado para que ASP.NET los descubra.
-    .AddApplicationPart(typeof(CreditosController).Assembly);
+    .ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = ErroresEnEspanol.Respuesta);
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

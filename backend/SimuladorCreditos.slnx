@@ -1,25 +1,7 @@
 <Solution>
-  <Folder Name="/AuthService/">
-    <Project Path="AuthService/AuthService.csproj" />
-    <Project Path="AuthService/Dominio/AuthService.Dominio.csproj" />
-    <Project Path="AuthService/Aplicacion/AuthService.Aplicacion.csproj" />
-    <Project Path="AuthService/Estructura/AuthService.Estructura.csproj" />
-    <Project Path="AuthService/Presentacion/AuthService.Presentacion.csproj" />
-  </Folder>
-  <Folder Name="/AssetService/">
-    <Project Path="AssetService/AssetService.csproj" />
-    <Project Path="AssetService/Dominio/AssetService.Dominio.csproj" />
-    <Project Path="AssetService/Aplicacion/AssetService.Aplicacion.csproj" />
-    <Project Path="AssetService/Estructura/AssetService.Estructura.csproj" />
-    <Project Path="AssetService/Presentacion/AssetService.Presentacion.csproj" />
-  </Folder>
-  <Folder Name="/CreditService/">
-    <Project Path="CreditService/CreditService.csproj" />
-    <Project Path="CreditService/Dominio/CreditService.Dominio.csproj" />
-    <Project Path="CreditService/Aplicacion/CreditService.Aplicacion.csproj" />
-    <Project Path="CreditService/Estructura/CreditService.Estructura.csproj" />
-    <Project Path="CreditService/Presentacion/CreditService.Presentacion.csproj" />
-    <Project Path="CreditService.Tests/CreditService.Tests.csproj" />
-  </Folder>
+  <Project Path="AuthService/AuthService.csproj" />
+  <Project Path="CreditService/CreditService.csproj" />
+  <Project Path="AssetService/AssetService.csproj" />
   <Project Path="ApiGateway/ApiGateway.csproj" />
+  <Project Path="CreditService.Tests/CreditService.Tests.csproj" />
 </Solution>
